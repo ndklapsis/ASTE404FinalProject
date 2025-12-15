@@ -169,7 +169,26 @@ def area_mach_relation(M: float, gamma: float) -> float:
     return term1 * (term2 ** exponent)
 
 def area_mach_derivative(M: float, gamma: float) -> float:
-    """Derivative d(A/A*)/dM (For Newton Solver)."""
+    """Derivative d(A/A*)/dM (For Newton Solver).
+    
+    Parameters
+    ----------
+    M : float
+        Mach number (unitless)
+    gamma : float
+        Ratio of specific heats (unitless)
+
+    Returns
+    -------
+    float
+        Derivative d(A/A*)/dM (unitless)
+
+    Notes
+    -----
+    d(A/A*)/dM = A/A* * (M^2 - 1) / (M * (1 + 0.5*(gamma-1)*M^2))
+
+    Used primarily for newton raphson solver.
+    """
     if M <= 1e-6: return -1e6
     A_ratio = area_mach_relation(M, gamma)
     term1 = (M**2 - 1.0)
@@ -206,9 +225,48 @@ def solve_area_mach(A_Astar: float, gamma: float, supersonic: bool = True) -> fl
         return solver.solve(func, deriv, guess=0.2, low=1e-6, high=1.0)
     
 def isentropic_P_P0(M: float, gamma: float) -> float:
+    """
+    Calculates static to stagnation pressure ratio P/P0 for isentropic flow.
+
+    Parameters
+    ----------
+    M : float
+        Mach number (unitless)
+    gamma : float
+        Ratio of specific heats (unitless)
+
+    Returns
+    -------
+    float
+        Pressure ratio P/P0 (unitless)
+
+    Notes
+    -----
+    P/P0 = (1 + 0.5 * (gamma - 1) * M^2) ^ (-gamma / (gamma - 1))
+    """
     return (1 + 0.5 * (gamma - 1) * M**2) ** (-gamma / (gamma - 1))
 
 def isentropic_T_T0(M: float, gamma: float) -> float:
+    """
+    Calculates static to stagnation temperature ratio T/T0 for isentropic flow.
+
+    Parameters
+    ----------
+    M : float
+        Mach number (unitless)
+    gamma : float
+        Ratio of specific heats (unitless)
+
+    Returns
+    -------
+    float
+        Temperature ratio T/T0 (unitless)
+        
+    Notes
+    -----
+    T/T0 = (1 + 0.5 * (gamma - 1) * M^2) ^ -1
+    """
+
     return (1 + 0.5 * (gamma - 1) * M**2) ** -1
 
 # --- 3. NORMAL SHOCK ---
