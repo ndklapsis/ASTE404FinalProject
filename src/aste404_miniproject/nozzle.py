@@ -129,27 +129,42 @@ class NozzleAnalyzer:
         best_idx = None
         min_error = float('inf')
         
-        # Scan divergent section with step size
-        step = max(1, (len(self.x) - self.throat_idx) // 20)  # ~20 points in divergent
-        
-        for i in range(self.throat_idx + 1, len(self.x), step):
+        # Scan divergent section - check every point for better resolution
+        for i in range(self.throat_idx + 1, len(self.x)):
             M_before = self.M[i]
             if M_before <= 1.0:
                 continue
             
-            # Calculate post-shock conditions
+            # Calculate shock properties
             shock_data = normal_shock_relations(M_before, self.gamma)
             M_after = shock_data['M2']
+            P2_P1 = shock_data['P2_P1']
+            P02_P01 = shock_data['P02_P01']
             
-            # Pressure ratio across shock
-            static_ratio = shock_data['P2_P1']
-            P_after_shock = self.P[i] * static_ratio
+            P1 = self.P[i]
+            P2 = P1 * P2_P1
             
-            # Flow downstream (subsonic after shock)
-            # Simplified: assume isentropic subsonic from shock location to exit
-            P_ratio_to_exit = (1 + 0.5 * (self.gamma - 1) * M_after**2) / \
-                              (1 + 0.5 * (self.gamma - 1) * self.M[-1]**2)
-            P_exit_with_shock = P_after_shock / P_ratio_to_exit
+            # New stagnation pressure after shock
+            P0_new = self.inputs['Pc'] * P02_P01
+            
+            # Now solve subsonic flow from shock location to exit
+            # For subsonic downstream, the area-Mach relation gives us exit Mach
+            area_exit = self.A[-1]
+            # Effective critical area after shock
+            A_star_new = self.At * P02_P01
+            ratio_exit = area_exit / A_star_new
+            
+            # Find exit Mach after shock
+            func = lambda m: area_mach_relation(m, self.gamma) - ratio_exit
+            deriv = lambda m: area_mach_derivative(m, self.gamma)
+            
+            try:
+                M_exit_with_shock = self.solver.solve(func, deriv, guess=0.5, low=1e-5, high=0.9999)
+                # Calculate exit pressure
+                factor = 1 + 0.5 * (self.gamma - 1) * M_exit_with_shock**2
+                P_exit_with_shock = P0_new * (factor ** (-self.gamma / (self.gamma - 1)))
+            except:
+                continue
             
             error = abs(P_exit_with_shock - P_ambient)
             
@@ -191,14 +206,11 @@ class NozzleAnalyzer:
         P2 = P1 * P2_P1
         T1 = self.T[shock_idx]
         
-        # Temperature after shock (using entropy change across shock)
-        # T2/T1 = (P2/P1) * (2/(gamma+1)) / (1 + ((gamma-1)/(gamma+1)) * (P2/P1))
+        # Temperature after shock
         temp_ratio = (P2/P1) * (2/(g+1)) / (1 + ((g-1)/(g+1)) * (P2/P1))
         T2 = T1 * temp_ratio
         
         # New stagnation conditions downstream of shock
-        # Stagnation pressure before shock is Pc (in isentropic region)
-        # After shock: P0_new = Pc * P02/P01
         P0_new = Pc * P02_P01
         T0_new = Tc  # Stagnation temperature constant through shock
         
@@ -206,17 +218,13 @@ class NozzleAnalyzer:
         self.P_post_shock[shock_idx] = P2
         self.T_post_shock[shock_idx] = T2
         
-        # 3. After shock: subsonic isentropic flow
-        # The effective critical area is: A_t_eff = A_t * (P01_new / P01)
-        # which means A_t_eff = A_t / (P01/P01_new) = A_t * (P01_new/P01)
-        # But we use: A/A_t_eff ratio to solve for M downstream
+        # 3. After shock: subsonic isentropic flow in divergent section
+        # Use effective critical area: A_star_new = A_t * (P02/P01)
+        A_star_new = self.At * P02_P01
         
         for i in range(shock_idx + 1, len(self.x)):
             area = self.A[i]
-            # For subsonic flow after shock, we need to find M such that
-            # A/A_star = A(x) / (A_t * P02_P01)
-            # This accounts for the reduced critical area due to stagnation pressure loss
-            ratio = area / (self.At * P02_P01)
+            ratio = area / A_star_new
             
             func = lambda m: area_mach_relation(m, g) - ratio
             deriv = lambda m: area_mach_derivative(m, g)
@@ -224,7 +232,7 @@ class NozzleAnalyzer:
             try:
                 self.M_post_shock[i] = self.solver.solve(func, deriv, guess=0.5, low=1e-5, high=0.9999)
             except:
-                self.M_post_shock[i] = M2  # Fallback
+                self.M_post_shock[i] = 0.01  # Fallback to low Mach
             
             # Pressure after shock (using new stagnation values)
             factor = 1 + 0.5 * (g - 1) * self.M_post_shock[i]**2
@@ -235,6 +243,7 @@ class NozzleAnalyzer:
         print(f"  Pre-shock Mach: {M1:.3f}, Post-shock Mach: {M2:.3f}")
         print(f"  Pressure ratio P2/P1: {P2_P1:.3f}")
         print(f"  Stagnation pressure ratio P02/P01: {P02_P01:.3f}")
+        print(f"  Exit pressure with shock: {self.P_post_shock[-1]/1e5:.3f} Bar")
 
     def plot_results(self):
         """Generates detailed plots of the nozzle analysis with shock detection results."""

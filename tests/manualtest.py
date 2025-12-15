@@ -6,7 +6,9 @@ gamma = 1.4
 print("\n[2] Testing Normal Shock...")
 # M1 = 2.0. Expect M2 = 0.577
 res = normal_shock_relations(2.0, gamma)
-print(res)
+print(res['P02_P01'])
+
+print("MACH: " + str(solve_area_mach(2.0, gamma, supersonic=True)))
 
 
 CF = c_f(gamma, pe_p0=0.1, pa_p0=0.05, ae_at=5.0)

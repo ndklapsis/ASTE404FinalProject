@@ -142,7 +142,26 @@ def c_f(gamma, pe_p0, pa_p0, ae_at):
 # --- 2. ISENTROPIC FLOW ---
 
 def area_mach_relation(M: float, gamma: float) -> float:
-    """Calculates A/A*."""
+    """Calculates A/A*
+    
+    Parameters
+    ----------
+    M : float
+        Mach number (unitless)
+    gamma : float
+        Ratio of specific heats (unitless)
+
+    Returns
+    -------
+    float
+        Area ratio A/A* (unitless)
+
+    Notes
+    -----
+    A/A* = (1/M) * [ (2/(gamma+1)) * (1 + (gamma-1)/2 * M^2) ]^((gamma+1)/(2*(gamma-1)))
+
+    if M <= 0, returns infinity.
+    """
     if M <= 0: return float('inf')
     term1 = 1.0 / M
     term2 = (2.0 / (gamma + 1.0)) * (1.0 + (gamma - 1.0) / 2.0 * M**2)
@@ -157,6 +176,35 @@ def area_mach_derivative(M: float, gamma: float) -> float:
     term2 = M * (1.0 + 0.5 * (gamma - 1.0) * M**2)
     return A_ratio * (term1 / term2)
 
+def solve_area_mach(A_Astar: float, gamma: float, supersonic: bool = True) -> float:
+    """
+    Solves for Mach number given area ratio A/A*.
+
+    Parameters
+    ----------
+    A_Astar : float
+        Area ratio A/A* (unitless)
+    gamma : float
+        Ratio of specific heats (unitless)
+    supersonic : bool, optional
+        If True, solves for supersonic Mach. If False, subsonic. Default is True.
+
+    Returns
+    -------
+    float
+        Mach number (unitless)
+    """
+    solver = HybridSolver()
+    
+    # Solve: A/A*(M) - target = 0
+    func = lambda m: area_mach_relation(m, gamma) - A_Astar
+    deriv = lambda m: area_mach_derivative(m, gamma)
+    
+    if supersonic:
+        return solver.solve(func, deriv, guess=2.0, low=1.0, high=50.0)
+    else:
+        return solver.solve(func, deriv, guess=0.2, low=1e-6, high=1.0)
+    
 def isentropic_P_P0(M: float, gamma: float) -> float:
     return (1 + 0.5 * (gamma - 1) * M**2) ** (-gamma / (gamma - 1))
 
@@ -166,7 +214,28 @@ def isentropic_T_T0(M: float, gamma: float) -> float:
 # --- 3. NORMAL SHOCK ---
 
 def normal_shock_relations(M1: float, gamma: float) -> dict:
-    """Returns M2, P2/P1, P02/P01."""
+    """
+    Calculates the mach number, pressure ratio, and stagnation pressure ratio immediately after a normal shock.
+
+    Parameters
+    ----------
+    M1 : float
+        Incoming Mach number before the shock.
+    gamma : float
+        Ratio of specific heats (unitless).
+
+    Returns
+    -------
+    dict
+        Dictionary with keys:
+        - "M2": Mach number after the shock
+        - "P2_P1": Static pressure ratio across the shock (P2/P1)
+        - "P02_P01": Stagnation pressure ratio across the shock (P02/P01)
+
+    Notes
+    -----
+    If M1 <= 1, the function returns M2 = M1, P2/P1 = 1.0, P02/P01 = 1.0 (no shock).
+    """
     if M1 <= 1: return {"M2": M1, "P2_P1": 1.0, "P02_P01": 1.0}
     
     # M2 Relation
