@@ -70,9 +70,8 @@ class NozzleAnalyzer:
         Tc = self.inputs['Tc']
         g = self.gamma
         
-        factor = 1 + 0.5 * (g - 1) * self.M**2
-        self.P = Pc * (factor ** (-g / (g - 1)))
-        self.T = Tc * (factor ** -1)
+        self.P = isentropic_P_P0(self.M, self.gamma) * Pc
+        self.T = isentropic_T_T0(self.M, self.gamma) * Tc
         
         print("Isentropic analysis complete.")
         
@@ -96,12 +95,12 @@ class NozzleAnalyzer:
         M_exit_isen = self.M[-1]
         print(f"Isentropic exit Mach: {M_exit_isen:.3f}")
         
-        if P_exit_isen >= P_ambient * 0.98:  # Underexpanded (within tolerance)
+        if P_exit_isen >= P_ambient:  # Underexpanded or perfectly expanded
             print("Flow regime: UNDEREXPANDED (no internal shocks)")
             self.shock_type = None
             return None
         
-        elif P_exit_isen < P_ambient * 0.98:  # Overexpanded
+        elif P_exit_isen < P_ambient:  # Overexpanded
             print("Flow regime: OVEREXPANDED")
             
             # Try to find internal normal shock
@@ -252,30 +251,17 @@ class NozzleAnalyzer:
             return
 
         # Create figure with subplots
-        fig = plt.figure(figsize=(14, 10))
+        fig = plt.figure(figsize=(16, 12))
         
-        # Create grid for subplots
-        gs = fig.add_gridspec(3, 2, hspace=0.3, wspace=0.3)
-        ax1 = fig.add_subplot(gs[0, :])    # Mach number (full width)
+        # Create grid for subplots - larger nozzle plot
+        gs = fig.add_gridspec(3, 2, hspace=0.3, wspace=0.3, height_ratios=[2.5, 1, 1])
+        ax1 = fig.add_subplot(gs[0, :])    # Nozzle contour with Mach overlay (full width, large)
         ax2 = fig.add_subplot(gs[1, :])    # Pressure (full width)
         ax3 = fig.add_subplot(gs[2, 0])    # Temperature
         ax4 = fig.add_subplot(gs[2, 1])    # Shock info text
         
-        # --- Plot 1: Mach Number ---
-        ax1.plot(self.x, self.M, 'r-', linewidth=2.5, label='Isentropic')
-        
-        if self.shock_type == 'normal' and self.M_post_shock is not None:
-            ax1.plot(self.x, self.M_post_shock, 'b--', linewidth=2, label='With Normal Shock')
-            if self.shock_location is not None:
-                ax1.axvline(self.x[self.shock_location], color='orange', linestyle=':', linewidth=2, label=f'Shock @ x={self.x[self.shock_location]:.4f}m')
-                ax1.plot(self.x[self.shock_location], self.M[self.shock_location], 'ro', markersize=8)
-                ax1.plot(self.x[self.shock_location], self.M_post_shock[self.shock_location], 'bo', markersize=8)
-        
-        ax1.set_ylabel('Mach Number', fontsize=11, fontweight='bold', color='red')
-        ax1.grid(True, alpha=0.3)
-        ax1.legend(loc='best')
-        ax1.set_title(f"Nozzle Flow Analysis - Shock Type: {self.shock_type.upper() if self.shock_type else 'NONE'}", 
-                     fontsize=12, fontweight='bold')
+        # --- Plot 1: Nozzle Contour with Mach Heatmap (Large at TOP) ---
+        self._plot_nozzle_contour(ax1)
         
         # --- Plot 2: Pressure ---
         ax2.plot(self.x, self.P / 1e5, 'b-', linewidth=2.5, label='Isentropic')
@@ -349,3 +335,70 @@ class NozzleAnalyzer:
             summary += "  (Detailed analysis not yet implemented)\n"
         
         return summary
+    
+    def _plot_nozzle_contour(self, ax):
+        """
+        Plots the nozzle geometry contour with Mach number colored overlay.
+        
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            The axes object to plot on
+        """
+        # Plot nozzle walls (upper and lower)
+        ax.fill_between(self.x, -self.r, self.r, alpha=0.15, color='gray', label='Nozzle Geometry')
+        ax.plot(self.x, self.r, 'k-', linewidth=2, label='Nozzle Wall')
+        ax.plot(self.x, -self.r, 'k-', linewidth=2)
+        
+        # Color code the Mach number along the centerline
+        # Normalize Mach for color mapping
+        if self.shock_type == 'normal' and self.M_post_shock is not None:
+            # Plot Mach distribution with shock
+            M_to_plot = self.M_post_shock
+            label_str = 'Mach (with shock)'
+        else:
+            M_to_plot = self.M
+            label_str = 'Mach (isentropic)'
+        
+        # Create a colormap for Mach numbers
+        M_min = np.min(M_to_plot)
+        M_max = np.max(M_to_plot)
+        
+        # Plot line segments colored by Mach number
+        for i in range(len(self.x) - 1):
+            M_avg = (M_to_plot[i] + M_to_plot[i+1]) / 2
+            # Normalize to [0, 1]
+            M_norm = (M_avg - M_min) / (M_max - M_min) if M_max > M_min else 0.5
+            
+            # Use a colormap (blue=subsonic, red=supersonic)
+            if M_avg < 1.0:
+                color = plt.cm.Blues(0.3 + 0.7 * M_norm)
+            else:
+                color = plt.cm.Reds(0.3 + 0.7 * M_norm)
+            
+            ax.plot(self.x[i:i+2], [0, 0], color=color, linewidth=4, solid_capstyle='round')
+        
+        # Add shock location marker
+        if self.shock_type == 'normal' and self.shock_location is not None:
+            ax.axvline(self.x[self.shock_location], color='orange', linestyle='--', linewidth=2.5, alpha=0.7)
+            ax.text(self.x[self.shock_location], max(self.r) * 0.9, f'Shock\nx={self.x[self.shock_location]:.3f}', 
+                   ha='center', fontsize=9, bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.7))
+        
+        # Add throat marker
+        ax.axvline(self.x[self.throat_idx], color='green', linestyle='--', linewidth=2, alpha=0.5)
+        ax.text(self.x[self.throat_idx], -max(self.r) * 0.9, f'Throat\nx={self.x[self.throat_idx]:.3f}', 
+               ha='center', fontsize=9, bbox=dict(boxstyle='round', facecolor='lightgreen', alpha=0.7))
+        
+        # Formatting
+        ax.set_xlabel('Axial Position x (m)', fontsize=11, fontweight='bold')
+        ax.set_ylabel('Radius r (m)', fontsize=11, fontweight='bold')
+        ax.set_title('Nozzle Geometry with Mach Number Distribution', fontsize=12, fontweight='bold')
+        ax.grid(True, alpha=0.3)
+        ax.set_aspect('equal', adjustable='box')
+        ax.legend(loc='upper left', fontsize=10)
+        
+        # Add colorbar for Mach reference
+        sm = plt.cm.ScalarMappable(cmap=plt.cm.RdYlBu_r, norm=plt.Normalize(vmin=M_min, vmax=M_max))
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax, orientation='vertical', pad=0.02, shrink=0.8)
+        cbar.set_label('Mach Number', fontsize=10, fontweight='bold')
