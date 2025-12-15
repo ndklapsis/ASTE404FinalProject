@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aste404_miniproject"
+version = "0.1.0"
+description = "A Nozzle Flow Analysis and Engine Design Library for ASTE 404"
+readme = "README.md"
+authors = [
+  { name = "Nikitas Klapsis", email = "your.email@usc.edu" },
+]
+license = { text = "MIT" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.8"
+dependencies = [
+    "numpy",
+    "matplotlib",
+    "scipy",
+    "pandas"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/yourusername/aste404_miniproject"
+
+# This creates a shortcut command so you can type 'aste-nozzle' 
+# in the terminal instead of 'python -m aste404_miniproject.main'
+[project.scripts]
+aste-nozzle = "aste404_miniproject.main:main"
