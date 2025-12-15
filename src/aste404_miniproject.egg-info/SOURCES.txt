@@ -14,3 +14,4 @@ src/aste404_miniproject.egg-info/dependency_links.txt
 src/aste404_miniproject.egg-info/requires.txt
 src/aste404_miniproject.egg-info/top_level.txt
 tests/test_step1.py
+tests/test_step2.py

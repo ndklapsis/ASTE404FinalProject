@@ -1,176 +1,342 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from .solver import NewtonSolver
-from .gas_dynamics import area_mach_relation, area_mach_derivative, normal_shock_relations
+from .solver import HybridSolver
+from .gas_dynamics import (
+    area_mach_relation, area_mach_derivative,
+    isentropic_P_P0, isentropic_T_T0,
+    normal_shock_relations, prandtl_meyer_function,
+    solve_expansion_fan, solve_oblique_beta
+)
 
 class NozzleAnalyzer:
-    def __init__(self, inputs: dict, geometry):
+    def __init__(self, inputs: dict, geometry_df):
         self.inputs = inputs
-        self.geo = geometry
+        self.x = geometry_df['x'].values
+        self.r = geometry_df['r'].values
         self.gamma = inputs['gamma']
-        self.solver = NewtonSolver()
         
-        # Geometry Setup
-        self.x = geometry['x'].values
-        self.r = geometry['r'].values
+        # 1. Geometry processing
         self.A = np.pi * self.r**2
-        self.At = np.min(self.A)
-        self.Ae = self.A[-1]
+        self.At = np.min(self.A) # Throat Area
         self.throat_idx = np.argmin(self.A)
+        
+        # Initialize the solver
+        self.solver = HybridSolver()
+        
+        # Placeholders for results
+        self.M = None
+        self.P = None
+        self.T = None
+        self.shock_type = None  # 'normal', 'oblique', 'expansion', or None
+        self.shock_location = None
+        self.M_post_shock = None
+        self.P_post_shock = None
+        self.T_post_shock = None
 
-    def _solve_isentropic_trajectory(self, throat_choked=True):
+    def solve_isentropic(self):
         """
-        Calculates the baseline isentropic Mach/Pressure distribution.
-        If throat_choked=False, it solves the subsonic Venturi branch.
+        Calculates the Ideal Isentropic Flow distribution.
         """
-        M = np.zeros_like(self.x)
-        Pc = self.inputs['Pc']
+        self.M = np.zeros_like(self.x)
+        
+        print(f"Solving flow for {len(self.x)} points...")
         
         for i, area in enumerate(self.A):
-            ratio = area / self.At
-            func = lambda m: area_mach_relation(m, self.gamma) - ratio
+            # Target ratio for the solver
+            target_ratio = area / self.At
+            
+            # Define the equation: Area_Mach(M) - Target = 0
+            func = lambda m: area_mach_relation(m, self.gamma) - target_ratio
             deriv = lambda m: area_mach_derivative(m, self.gamma)
             
-            if not throat_choked:
-                # Subsonic throughout (Venturi)
-                # We need a boundary condition to solve this exactly, usually P_exit.
-                # For this helper, we'll assume choked for the standard arrays
-                # and handle pure subsonic in the specific method.
-                pass 
-
+            # --- INTELLIGENT GUESSING ---
             if i < self.throat_idx:
-                # Subsonic Convergent
-                M[i] = self.solver.solve(func, deriv, 0.4, 1e-5, 0.999)
+                # CONVERGENT SECTION (Subsonic)
+                # Bounds: Near 0 to 0.999
+                self.M[i] = self.solver.solve(func, deriv, guess=0.4, low=1e-5, high=0.9999)
+            
             elif i == self.throat_idx:
-                M[i] = 1.0
+                # THROAT (Sonic)
+                self.M[i] = 1.0
+            
             else:
-                # Supersonic Divergent
-                M[i] = self.solver.solve(func, deriv, 2.5, 1.001, 10.0)
-                
-        P = Pc * (1 + 0.5*(self.gamma-1)*M**2)**(-self.gamma/(self.gamma-1))
-        return M, P
-
-    def _calculate_shocked_flow(self, shock_idx, M_isen):
-        """
-        Calculates flow with a normal shock at a specific index.
-        """
-        M_final = M_isen.copy()
-        P_final = np.zeros_like(M_isen)
+                # DIVERGENT SECTION (Supersonic)
+                # Bounds: 1.0001 to 20.0
+                self.M[i] = self.solver.solve(func, deriv, guess=2.5, low=1.0001, high=20.0)
+        
+        # Calculate Pressure and Temperature from Mach
+        # P = Pc * (1 + (g-1)/2 * M^2)^(-g/(g-1))
         Pc = self.inputs['Pc']
+        Tc = self.inputs['Tc']
+        g = self.gamma
         
-        # 1. Flow before shock (Isentropic)
-        for i in range(shock_idx):
-            P_final[i] = Pc * (1 + 0.5*(self.gamma-1)*M_final[i]**2)**(-self.gamma/(self.gamma-1))
-            
-        # 2. Flow across shock
-        M1 = M_isen[shock_idx]
-        shk = normal_shock_relations(M1, self.gamma)
+        factor = 1 + 0.5 * (g - 1) * self.M**2
+        self.P = Pc * (factor ** (-g / (g - 1)))
+        self.T = Tc * (factor ** -1)
         
-        # New Stagnation Pressure downstream
-        P0_new = Pc * shk['P02_P01']
-        # New Critical Area (A_star) downstream
-        At_new = self.At / shk['P02_P01']
+        print("Isentropic analysis complete.")
         
-        # 3. Flow after shock (Subsonic)
-        for i in range(shock_idx, len(self.x)):
-            ratio = self.A[i] / At_new
-            func = lambda m: area_mach_relation(m, self.gamma) - ratio
-            deriv = lambda m: area_mach_derivative(m, self.gamma)
-            
-            # Solve subsonic branch
-            try:
-                # If area constricts after shock, flow might re-choke (unlikely in standard nozzle)
-                M_final[i] = self.solver.solve(func, deriv, 0.4, 1e-5, 0.999)
-            except:
-                M_final[i] = 0.0 # Error fallback
-            
-            P_final[i] = P0_new * (1 + 0.5*(self.gamma-1)*M_final[i]**2)**(-self.gamma/(self.gamma-1))
-            
-        return M_final, P_final
-
-    def solve_with_conditions(self):
+    def detect_shock_type(self):
         """
-        Standard single-case analyzer based on input file P_ambient.
+        Detects shock type by comparing isentropic exit pressure with ambient pressure.
+        Returns: 'normal', 'oblique', 'expansion', or None
         """
-        # 1. Get Isentropic Supersonic Baseline
-        M_isen, P_isen = self._solve_isentropic_trajectory()
-        P_exit_design = P_isen[-1]
-        P_amb = self.inputs['Pb1']
+        if self.M is None or self.P is None:
+            print("Error: Run solve_isentropic() first.")
+            return None
         
-        self.results = {"x": self.x, "M": M_isen, "P": P_isen, "Label": "Isentropic"}
-
-        # 2. Check Regimes
-        if P_exit_design >= P_amb:
-            print(f"Nozzle is Underexpanded (Pe > Pa). No internal shocks.")
-            return
-
-        # 3. Check for Normal Shock inside nozzle
-        # Find the shock location that matches P_amb at exit
-        best_idx = -1
-        min_diff = float('inf')
+        P_exit_isen = self.P[-1]
+        P_ambient = self.inputs.get('Pb1', self.inputs.get('P_ambient', 101325))  # Default to 1 atm
         
-        # Scan divergent section
-        for i in range(self.throat_idx + 1, len(self.x), 5): # Step by 5 for speed
-            _, P_trial = self._calculate_shocked_flow(i, M_isen)
-            if abs(P_trial[-1] - P_amb) < min_diff:
-                min_diff = abs(P_trial[-1] - P_amb)
+        print(f"\n--- Shock Detection Analysis ---")
+        print(f"Isentropic exit pressure: {P_exit_isen/1e5:.3f} Bar")
+        print(f"Ambient pressure: {P_ambient/1e5:.3f} Bar")
+        
+        # Exit Mach number
+        M_exit_isen = self.M[-1]
+        print(f"Isentropic exit Mach: {M_exit_isen:.3f}")
+        
+        if P_exit_isen >= P_ambient * 0.98:  # Underexpanded (within tolerance)
+            print("Flow regime: UNDEREXPANDED (no internal shocks)")
+            self.shock_type = None
+            return None
+        
+        elif P_exit_isen < P_ambient * 0.98:  # Overexpanded
+            print("Flow regime: OVEREXPANDED")
+            
+            # Try to find internal normal shock
+            shock_idx = self._find_normal_shock_location()
+            if shock_idx is not None:
+                print(f"Normal shock detected at index {shock_idx} (x = {self.x[shock_idx]:.4f} m)")
+                self.shock_type = 'normal'
+                self.shock_location = shock_idx
+                self._calculate_normal_shock_flow(shock_idx)
+                return 'normal'
+            else:
+                print("No internal normal shock found.")
+                print("Flow likely exits with oblique shocks and expansion fans (external shock system)")
+                self.shock_type = 'oblique'
+                return 'oblique'
+    
+    def _find_normal_shock_location(self, tolerance=0.05):
+        """
+        Scans the divergent section for a normal shock location that brings
+        the exit pressure close to ambient pressure.
+        
+        tolerance: acceptable pressure ratio difference (default 5%)
+        """
+        P_ambient = self.inputs.get('Pb1', self.inputs.get('P_ambient', 101325))
+        best_idx = None
+        min_error = float('inf')
+        
+        # Scan divergent section with step size
+        step = max(1, (len(self.x) - self.throat_idx) // 20)  # ~20 points in divergent
+        
+        for i in range(self.throat_idx + 1, len(self.x), step):
+            M_before = self.M[i]
+            if M_before <= 1.0:
+                continue
+            
+            # Calculate post-shock conditions
+            shock_data = normal_shock_relations(M_before, self.gamma)
+            M_after = shock_data['M2']
+            
+            # Pressure ratio across shock
+            static_ratio = shock_data['P2_P1']
+            P_after_shock = self.P[i] * static_ratio
+            
+            # Flow downstream (subsonic after shock)
+            # Simplified: assume isentropic subsonic from shock location to exit
+            P_ratio_to_exit = (1 + 0.5 * (self.gamma - 1) * M_after**2) / \
+                              (1 + 0.5 * (self.gamma - 1) * self.M[-1]**2)
+            P_exit_with_shock = P_after_shock / P_ratio_to_exit
+            
+            error = abs(P_exit_with_shock - P_ambient)
+            
+            if error < min_error:
+                min_error = error
                 best_idx = i
         
-        if best_idx != -1 and min_diff < P_amb * 0.05: # 5% Tolerance
-            print(f"Normal Shock detected at x = {self.x[best_idx]:.3f} m")
-            M_shock, P_shock = self._calculate_shocked_flow(best_idx, M_isen)
-            self.results = {"x": self.x, "M": M_shock, "P": P_shock, "Label": "Shocked"}
-        else:
-            print("Flow is likely Overexpanded with Oblique Shocks outside (No internal normal shock solution found).")
+        # Check if we found a reasonable shock location
+        if best_idx is not None and min_error < P_ambient * tolerance:
+            return best_idx
+        return None
+    
+    def _calculate_normal_shock_flow(self, shock_idx):
+        """
+        Recalculates the flow field with a normal shock at shock_idx.
+        Stores results in M_post_shock, P_post_shock, T_post_shock.
+        """
+        self.M_post_shock = self.M.copy()
+        self.P_post_shock = np.zeros_like(self.P)
+        self.T_post_shock = np.zeros_like(self.T)
+        
+        Pc = self.inputs['Pc']
+        Tc = self.inputs['Tc']
+        g = self.gamma
+        
+        # 1. Before shock: copy isentropic values
+        for i in range(shock_idx):
+            self.P_post_shock[i] = self.P[i]
+            self.T_post_shock[i] = self.T[i]
+        
+        # 2. Across shock
+        M1 = self.M[shock_idx]
+        shock_data = normal_shock_relations(M1, g)
+        M2 = shock_data['M2']
+        P2_P1 = shock_data['P2_P1']
+        P02_P01 = shock_data['P02_P01']
+        
+        P1 = self.P[shock_idx]
+        P2 = P1 * P2_P1
+        T1 = self.T[shock_idx]
+        
+        # Temperature after shock (using entropy change across shock)
+        # T2/T1 = (P2/P1) * (2/(gamma+1)) / (1 + ((gamma-1)/(gamma+1)) * (P2/P1))
+        temp_ratio = (P2/P1) * (2/(g+1)) / (1 + ((g-1)/(g+1)) * (P2/P1))
+        T2 = T1 * temp_ratio
+        
+        # New stagnation conditions downstream of shock
+        # Stagnation pressure before shock is Pc (in isentropic region)
+        # After shock: P0_new = Pc * P02/P01
+        P0_new = Pc * P02_P01
+        T0_new = Tc  # Stagnation temperature constant through shock
+        
+        self.M_post_shock[shock_idx] = M2
+        self.P_post_shock[shock_idx] = P2
+        self.T_post_shock[shock_idx] = T2
+        
+        # 3. After shock: subsonic isentropic flow
+        # The effective critical area is: A_t_eff = A_t * (P01_new / P01)
+        # which means A_t_eff = A_t / (P01/P01_new) = A_t * (P01_new/P01)
+        # But we use: A/A_t_eff ratio to solve for M downstream
+        
+        for i in range(shock_idx + 1, len(self.x)):
+            area = self.A[i]
+            # For subsonic flow after shock, we need to find M such that
+            # A/A_star = A(x) / (A_t * P02_P01)
+            # This accounts for the reduced critical area due to stagnation pressure loss
+            ratio = area / (self.At * P02_P01)
+            
+            func = lambda m: area_mach_relation(m, g) - ratio
+            deriv = lambda m: area_mach_derivative(m, g)
+            
+            try:
+                self.M_post_shock[i] = self.solver.solve(func, deriv, guess=0.5, low=1e-5, high=0.9999)
+            except:
+                self.M_post_shock[i] = M2  # Fallback
+            
+            # Pressure after shock (using new stagnation values)
+            factor = 1 + 0.5 * (g - 1) * self.M_post_shock[i]**2
+            self.P_post_shock[i] = P0_new * (factor ** (-g / (g - 1)))
+            self.T_post_shock[i] = T0_new * (factor ** -1)
+        
+        print(f"Normal shock calculation complete at index {shock_idx}")
+        print(f"  Pre-shock Mach: {M1:.3f}, Post-shock Mach: {M2:.3f}")
+        print(f"  Pressure ratio P2/P1: {P2_P1:.3f}")
+        print(f"  Stagnation pressure ratio P02/P01: {P02_P01:.3f}")
 
     def plot_results(self):
-        """Standard plot for the single analyzed case."""
-        res = self.results
-        fig, ax1 = plt.subplots(figsize=(10,6))
+        """Generates detailed plots of the nozzle analysis with shock detection results."""
+        if self.M is None:
+            print("Error: Run solve_isentropic() and detect_shock_type() first.")
+            return
+
+        # Create figure with subplots
+        fig = plt.figure(figsize=(14, 10))
         
-        ax1.set_xlabel('Axial Position (m)')
-        ax1.set_ylabel('Mach Number', color='red')
-        ax1.plot(res['x'], res['M'], 'r-', label=res.get('Label', 'M'))
-        ax1.tick_params(axis='y', labelcolor='red')
+        # Create grid for subplots
+        gs = fig.add_gridspec(3, 2, hspace=0.3, wspace=0.3)
+        ax1 = fig.add_subplot(gs[0, :])    # Mach number (full width)
+        ax2 = fig.add_subplot(gs[1, :])    # Pressure (full width)
+        ax3 = fig.add_subplot(gs[2, 0])    # Temperature
+        ax4 = fig.add_subplot(gs[2, 1])    # Shock info text
         
-        ax2 = ax1.twinx()
-        ax2.set_ylabel('Pressure (Pa)', color='blue')
-        ax2.plot(res['x'], res['P'], 'b--', label='Pressure')
-        ax2.tick_params(axis='y', labelcolor='blue')
+        # --- Plot 1: Mach Number ---
+        ax1.plot(self.x, self.M, 'r-', linewidth=2.5, label='Isentropic')
         
-        plt.title('Nozzle Flow Distribution')
-        plt.grid(True, alpha=0.3)
+        if self.shock_type == 'normal' and self.M_post_shock is not None:
+            ax1.plot(self.x, self.M_post_shock, 'b--', linewidth=2, label='With Normal Shock')
+            if self.shock_location is not None:
+                ax1.axvline(self.x[self.shock_location], color='orange', linestyle=':', linewidth=2, label=f'Shock @ x={self.x[self.shock_location]:.4f}m')
+                ax1.plot(self.x[self.shock_location], self.M[self.shock_location], 'ro', markersize=8)
+                ax1.plot(self.x[self.shock_location], self.M_post_shock[self.shock_location], 'bo', markersize=8)
+        
+        ax1.set_ylabel('Mach Number', fontsize=11, fontweight='bold', color='red')
+        ax1.grid(True, alpha=0.3)
+        ax1.legend(loc='best')
+        ax1.set_title(f"Nozzle Flow Analysis - Shock Type: {self.shock_type.upper() if self.shock_type else 'NONE'}", 
+                     fontsize=12, fontweight='bold')
+        
+        # --- Plot 2: Pressure ---
+        ax2.plot(self.x, self.P / 1e5, 'b-', linewidth=2.5, label='Isentropic')
+        
+        if self.shock_type == 'normal' and self.P_post_shock is not None:
+            ax2.plot(self.x, self.P_post_shock / 1e5, 'g--', linewidth=2, label='With Normal Shock')
+            if self.shock_location is not None:
+                ax2.axvline(self.x[self.shock_location], color='orange', linestyle=':', linewidth=2)
+                ax2.plot(self.x[self.shock_location], self.P[self.shock_location] / 1e5, 'bo', markersize=8)
+                ax2.plot(self.x[self.shock_location], self.P_post_shock[self.shock_location] / 1e5, 'go', markersize=8)
+        
+        # Show ambient pressure
+        P_ambient = self.inputs.get('Pb1', self.inputs.get('P_ambient', 101325))
+        ax2.axhline(P_ambient / 1e5, color='gray', linestyle='--', linewidth=1.5, label=f'Ambient ({P_ambient/1e5:.3f} Bar)')
+        
+        ax2.set_ylabel('Pressure (Bar)', fontsize=11, fontweight='bold', color='blue')
+        ax2.set_xlabel('Axial Position x (m)', fontsize=11, fontweight='bold')
+        ax2.grid(True, alpha=0.3)
+        ax2.legend(loc='best')
+        
+        # --- Plot 3: Temperature ---
+        ax3.plot(self.x, self.T, 'purple', linewidth=2.5, label='Isentropic')
+        
+        if self.shock_type == 'normal' and self.T_post_shock is not None:
+            ax3.plot(self.x, self.T_post_shock, 'brown', linestyle='--', linewidth=2, label='With Normal Shock')
+            if self.shock_location is not None:
+                ax3.axvline(self.x[self.shock_location], color='orange', linestyle=':', linewidth=1.5)
+        
+        ax3.set_ylabel('Temperature (K)', fontsize=10, fontweight='bold')
+        ax3.set_xlabel('Axial Position x (m)', fontsize=10, fontweight='bold')
+        ax3.grid(True, alpha=0.3)
+        ax3.legend(loc='best')
+        
+        # --- Plot 4: Summary Text ---
+        ax4.axis('off')
+        summary_text = self._generate_shock_summary()
+        ax4.text(0.05, 0.95, summary_text, transform=ax4.transAxes, 
+                fontsize=10, verticalalignment='top', family='monospace',
+                bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+        
+        plt.tight_layout()
         plt.show()
-
-    def plot_pressure_sweep(self):
-        """
-        Generates the 'Classic' Nozzle Pressure Plot.
-        Sweeps shock locations to show different regimes.
-        """
-        print("Generating Pressure Sweep Plot...")
-        M_isen, P_isen = self._solve_isentropic_trajectory()
+    
+    def _generate_shock_summary(self):
+        """Generates a text summary of the shock detection results."""
+        P_ambient = self.inputs.get('Pb1', self.inputs.get('P_ambient', 101325))
         
-        plt.figure(figsize=(12, 7))
+        summary = "=== SHOCK ANALYSIS SUMMARY ===\n\n"
+        summary += f"Shock Type: {self.shock_type.upper() if self.shock_type else 'NONE'}\n"
+        summary += f"Ambient Pressure: {P_ambient/1e5:.3f} Bar\n\n"
         
-        # 1. Plot Geometry (normalized to fit plot) - Optional visualization
-        # plt.fill_between(self.x, self.r/max(self.r)*max(P_isen), color='gray', alpha=0.1)
-
-        # 2. Curve A: Design Condition (Supersonic Isentropic)
-        plt.plot(self.x, P_isen / 1e5, 'k-', linewidth=2, label='Design (Supersonic)')
+        # Isentropic conditions
+        summary += "ISENTROPIC (Design):\n"
+        summary += f"  Exit Mach: {self.M[-1]:.3f}\n"
+        summary += f"  Exit Pressure: {self.P[-1]/1e5:.3f} Bar\n"
+        summary += f"  Exit Temp: {self.T[-1]:.1f} K\n\n"
         
-        # 3. Curve B: Shock at Exit Plane
-        M_exit, P_exit_shock = self._calculate_shocked_flow(len(self.x)-1, M_isen)
-        plt.plot(self.x, P_exit_shock / 1e5, 'g-', label='Shock at Exit')
+        # Post-shock conditions (if applicable)
+        if self.shock_type == 'normal' and self.M_post_shock is not None:
+            summary += "WITH NORMAL SHOCK:\n"
+            summary += f"  Shock Location: x = {self.x[self.shock_location]:.4f} m\n"
+            summary += f"  Shock Index: {self.shock_location}\n"
+            summary += f"  Pre-shock Mach: {self.M[self.shock_location]:.3f}\n"
+            summary += f"  Post-shock Mach: {self.M_post_shock[self.shock_location]:.3f}\n"
+            summary += f"  Exit Mach: {self.M_post_shock[-1]:.3f}\n"
+            summary += f"  Exit Pressure: {self.P_post_shock[-1]/1e5:.3f} Bar\n"
+            summary += f"  Exit Temp: {self.T_post_shock[-1]:.1f} K\n"
+        elif self.shock_type == 'oblique':
+            summary += "OBLIQUE SHOCK SYSTEM:\n"
+            summary += "  External shocks and expansion fans\n"
+            summary += "  (Detailed analysis not yet implemented)\n"
         
-        # 4. Curves C, D, E: Internal Shocks
-        # Pick 3 locations inside the divergent section (25%, 50%, 75%)
-        div_len = len(self.x) - self.throat_idx
-        indices = [
-            self.throat_idx + int(div_len * 0.25),
-            self.throat_idx + int(div_len * 0.50),
-            self.throat_idx + int(div_len * 0.75)
-        ]
-        
-        for idx in indices:
-            _, P_shk = self._calculate_shocked_flow(idx, M_isen)
-            plt.plot(self.x, P_shk / 1e5, '--', label=f'Shock @ x={self.x[idx]:.2f}')
+        return summary
