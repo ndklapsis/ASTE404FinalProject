@@ -95,10 +95,14 @@ class NozzleAnalyzer:
         M_exit_isen = self.M[-1]
         print(f"Isentropic exit Mach: {M_exit_isen:.3f}")
         
-        if P_exit_isen >= P_ambient:  # Underexpanded or perfectly expanded
-            print("Flow regime: UNDEREXPANDED (no internal shocks)")
-            self.shock_type = None
-            return None
+        if P_exit_isen > P_ambient:  # Underexpanded or perfectly expanded
+            print("Flow regime: UNDEREXPANDED")
+            # Calculate the angle of the expansion fan
+            M_exit_isen = self.M[-1]
+            beta = prandtl_meyer_function(M_exit_isen, self.gamma)
+            print(f"Expansion fan angle (beta): {beta:.3f} radians")
+            self.shock_type = 'expansion'
+            return 'expansion'
         
         elif P_exit_isen < P_ambient:  # Overexpanded
             print("Flow regime: OVEREXPANDED")
@@ -113,67 +117,75 @@ class NozzleAnalyzer:
                 return 'normal'
             else:
                 print("No internal normal shock found.")
-                print("Flow likely exits with oblique shocks and expansion fans (external shock system)")
+                # Calculate the angle of the oblique shock using theta-beta-M relation
+                M_exit = self.M[-1]
+                theta = np.arcsin(1 / M_exit)  # Approximation for small angles
+                beta = np.arcsin(1 / M_exit) + np.arctan((2 * (M_exit**2 * np.sin(theta)**2 - 1)) / (M_exit**2 * (self.gamma + np.cos(2 * theta)) - 2))
+                print(f"Oblique shock angle (beta): {beta:.3f} radians")
                 self.shock_type = 'oblique'
                 return 'oblique'
+            
+        else:  # Perfectly expanded
+            print("Flow regime: PERFECTLY EXPANDED")
+            self.shock_type = None
+            return None
     
     def _find_normal_shock_location(self, tolerance=0.05):
         """
-        Scans the divergent section for a normal shock location that brings
-        the exit pressure close to ambient pressure.
-        
-        tolerance: acceptable pressure ratio difference (default 5%)
+        Scan divergent section for shock location that brings exit pressure close to ambient.
+        For each candidate shock location, calculate post-shock flow and check exit pressure.
         """
         P_ambient = self.inputs.get('Pb1', self.inputs.get('P_ambient', 101325))
+        Pc = self.inputs['Pc']
+        g = self.gamma
+        
         best_idx = None
         min_error = float('inf')
         
-        # Scan divergent section - check every point for better resolution
+        # Scan divergent section - check every point
         for i in range(self.throat_idx + 1, len(self.x)):
             M_before = self.M[i]
             if M_before <= 1.0:
                 continue
             
-            # Calculate shock properties
-            shock_data = normal_shock_relations(M_before, self.gamma)
+            # Get shock properties at this location
+            shock_data = normal_shock_relations(M_before, g)
             M_after = shock_data['M2']
             P2_P1 = shock_data['P2_P1']
             P02_P01 = shock_data['P02_P01']
             
+            # Pressure before shock
             P1 = self.P[i]
-            P2 = P1 * P2_P1
             
             # New stagnation pressure after shock
-            P0_new = self.inputs['Pc'] * P02_P01
+            P0_new = Pc * P02_P01
             
-            # Now solve subsonic flow from shock location to exit
-            # For subsonic downstream, the area-Mach relation gives us exit Mach
-            area_exit = self.A[-1]
-            # Effective critical area after shock
+            # Solve subsonic flow from shock to exit with new stagnation conditions
+            A_exit = self.A[-1]
             A_star_new = self.At * P02_P01
-            ratio_exit = area_exit / A_star_new
+            ratio_exit = A_exit / A_star_new
             
-            # Find exit Mach after shock
-            func = lambda m: area_mach_relation(m, self.gamma) - ratio_exit
-            deriv = lambda m: area_mach_derivative(m, self.gamma)
+            # Find exit Mach
+            func = lambda m: area_mach_relation(m, g) - ratio_exit
+            deriv = lambda m: area_mach_derivative(m, g)
             
             try:
-                M_exit_with_shock = self.solver.solve(func, deriv, guess=0.5, low=1e-5, high=0.9999)
-                # Calculate exit pressure
-                factor = 1 + 0.5 * (self.gamma - 1) * M_exit_with_shock**2
-                P_exit_with_shock = P0_new * (factor ** (-self.gamma / (self.gamma - 1)))
+                M_exit = self.solver.solve(func, deriv, guess=0.5, low=1e-5, high=0.9999)
+                # Exit pressure
+                factor = 1 + 0.5 * (g - 1) * M_exit**2
+                P_exit = P0_new * (factor ** (-g / (g - 1)))
             except:
                 continue
             
-            error = abs(P_exit_with_shock - P_ambient)
+            error = abs(P_exit - P_ambient)
             
             if error < min_error:
                 min_error = error
                 best_idx = i
         
-        # Check if we found a reasonable shock location
         if best_idx is not None and min_error < P_ambient * tolerance:
             return best_idx
+        
         return None
     
     def _calculate_normal_shock_flow(self, shock_idx):
@@ -213,14 +225,14 @@ class NozzleAnalyzer:
         P0_new = Pc * P02_P01
         T0_new = Tc  # Stagnation temperature constant through shock
         
+        # New effective critical area
+        A_star_new = self.At * P02_P01
+        
         self.M_post_shock[shock_idx] = M2
         self.P_post_shock[shock_idx] = P2
         self.T_post_shock[shock_idx] = T2
         
         # 3. After shock: subsonic isentropic flow in divergent section
-        # Use effective critical area: A_star_new = A_t * (P02/P01)
-        A_star_new = self.At * P02_P01
-        
         for i in range(shock_idx + 1, len(self.x)):
             area = self.A[i]
             ratio = area / A_star_new

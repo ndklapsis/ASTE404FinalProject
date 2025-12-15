@@ -37,7 +37,7 @@ def run_step2():
     
     # # 5. Detect Shock Type
     # print("\nDetecting shock configuration...")
-    # shock_type = analyzer.detect_shock_type()
+    shock_type = analyzer.detect_shock_type()
     
     # # 6. Plot Results (with shock overlay if applicable)
     # print("\nGenerating Plot...")
