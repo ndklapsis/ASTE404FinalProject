@@ -261,7 +261,7 @@ def isentropic_T_T0(M: float, gamma: float) -> float:
     -------
     float
         Temperature ratio T/T0 (unitless)
-        
+
     Notes
     -----
     T/T0 = (1 + 0.5 * (gamma - 1) * M^2) ^ -1
@@ -354,6 +354,39 @@ def solve_expansion_fan(M1: float, theta_deg: float, gamma: float) -> float:
     return solver.solve(func, deriv, guess=M1+1.0, low=M1, high=20.0)
 
 # --- 5. OBLIQUE SHOCK (Theta-Beta-M) ---
+
+def oblique_shock_beta(P2_P1: float, M1: float, gamma: float) -> float:
+    """
+    Calculates shock angle beta given pressure ratio across shock.
+    
+    Parameters
+    ----------
+    P2_P1 : float
+        Pressure ratio across shock (P2/P1)
+    M1 : float
+        Incoming Mach number before shock
+    gamma : float
+        Ratio of specific heats (unitless)
+    
+    Returns
+    -------
+    float
+        Shock angle beta (degrees)
+    
+    Notes
+    -----
+    Uses the normal shock relation: P2/P1 = 1 + (2*gamma/(gamma+1)) * (Mn1^2 - 1)
+    where Mn1 = M1 * sin(beta), then solves algebraically for beta.
+    """
+    # Normal shock relation: P2/P1 = 1 + (2*gamma/(gamma+1)) * (Mn1^2 - 1)
+    # Rearrange to solve for Mn1:
+    # Mn1^2 = ((P2/P1 - 1) / (2*gamma/(gamma+1))) + 1
+    Mn1 = np.sqrt(((P2_P1 - 1) / (2 * gamma / (gamma + 1))) + 1)
+    
+    # From Mn1 = M1 * sin(beta), solve for beta:
+    # beta = arcsin(Mn1 / M1)
+    beta_rad = np.arcsin(Mn1 / M1)
+    return np.degrees(beta_rad)
 
 def theta_beta_mach(M1: float, beta_deg: float, gamma: float) -> float:
     """Calculates deflection angle theta given shock angle beta."""
