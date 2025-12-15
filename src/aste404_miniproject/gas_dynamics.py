@@ -1,7 +1,146 @@
 import numpy as np
+import numbers
 from .solver import HybridSolver
 
-# --- 1. ISENTROPIC FLOW ---
+# --- 1. IDEAL ROCKET FLOW ---
+
+def c_star(gamma, r, t0):
+    """
+    Calculates the characteristic velocity (c*) for an ideal rocket.
+
+    Parameters
+    ----------
+    gamma : float or numpy.ndarray
+        Ratio of specific heats (unitless).
+    r : float or numpy.ndarray
+        Specific gas constant (J/ (kg * K))
+    t0 : float or numpy.ndarray
+        Stagnation temperature  (K)
+
+    Returns
+    -------
+    float or numpy.ndarray
+        Characteristic velocity (c*) in units of velocity 
+        (matching the units of sqrt(r * t0))
+
+    Raises
+    ------
+    TypeError
+        If any input is not numeric
+    ValueError
+        If inputs are outside their valid physical domains:
+        - gamma <= 1
+        - r <= 0
+        - t0 <= 0
+    
+    Notes
+    -----
+    c* = sqrt( (1/gamma) * ( (gamma+1)/2 )^((gamma+1)/(gamma-1)) * R * T0 )
+    
+ 
+    """
+    # --- Input Validation ---
+    for arg_name, arg_val in [('gamma', gamma), ('r', r), ('t0', t0)]:
+        if not isinstance(arg_val, (numbers.Number, np.ndarray)):
+            raise TypeError(f"Input '{arg_name}' must be numeric (float or numpy array).")
+
+    # Convert scalars to 0-d arrays to make agnostic validation
+    gamma = np.asarray(gamma)
+    r = np.asarray(r)
+    t0 = np.asarray(t0)
+
+    if np.any(gamma <= 1):
+        raise ValueError("Ratio of specific heats (gamma) must be > 1.")
+    if np.any(r <= 0):
+        raise ValueError("Specific gas constant (r) must be > 0.")
+    if np.any(t0 <= 0):
+        raise ValueError("Stagnation temperature (t0) must be > 0 (absolute).")
+
+    # --- Equation ---
+    g = gamma
+    term1 = 1 / g
+    term2 = ((g + 1) / 2) ** ((g + 1) / (g - 1))
+    term3 = r * t0
+    
+    c_star = np.sqrt(term1 * term2 * term3)
+    
+    return c_star
+
+def c_f(gamma, pe_p0, pa_p0, ae_at):
+    """
+    Calculates the thrust coefficient (CF) for an ideal rocket.
+
+    Parameters
+    ----------
+    gamma : float or numpy.ndarray
+        Ratio of specific heats (unitless)
+    pe_p0 : float or numpy.ndarray
+        Nozzle exit pressure to stagnation pressure ratio (unitless)
+    pa_p0 : float or numpy.ndarray
+        Ambient pressure to stagnation pressure ratio (unitless)
+    ae_at : float or numpy.ndarray
+        Nozzle exit area to throat area ratio (unitless)
+
+    Returns
+    -------
+    float or numpy.ndarray
+        Thrust coefficient (CF) (unitless)
+
+    Raises
+    ------
+    TypeError
+        If any input is not numeric.
+    ValueError
+        If inputs are outside their valid physical domains:
+        - gamma <= 1
+        - pe_p0 not in [0, 1)
+        - pa_p0 not in [0, 1)
+        - ae_at < 1
+
+    Notes
+    -----
+    CF = sqrt( (2*g^2)/(g-1) * (2/(g+1))^((g+1)/(g-1)) * (1 - (pe_p0)^((g-1)/g)) ) 
+         + (pe_p0 - pa_p0) * ae_at
+
+    """
+    # --- Input Validation [cite: 101, 102] ---
+    for arg_name, arg_val in [('gamma', gamma), ('pe_p0', pe_p0), ('pa_p0', pa_p0), ('ae_at', ae_at)]:
+        if not isinstance(arg_val, (numbers.Number, np.ndarray)):
+            raise TypeError(f"Input '{arg_name}' must be numeric (float or numpy array).")
+
+    # Convert scalars to 0-d arrays to allow universal validation
+    gamma = np.asarray(gamma)
+    pe_p0 = np.asarray(pe_p0)
+    pa_p0 = np.asarray(pa_p0)
+    ae_at = np.asarray(ae_at)
+
+    if np.any(gamma <= 1):
+        raise ValueError("Ratio of specific heats (gamma) must be > 1.")
+    if np.any((pe_p0 < 0) | (pe_p0 >= 1)):
+        raise ValueError("Pressure ratio (pe_p0) must be in the range [0, 1).")
+    if np.any((pa_p0 < 0) | (pa_p0 >= 1)):
+        raise ValueError("Pressure ratio (pa_p0) must be in the range [0, 1).")
+    if np.any(ae_at < 1):
+        raise ValueError("Nozzle area ratio (ae_at) must be >= 1.")
+
+    # --- Equation ---
+    g = gamma 
+
+    # momentum thrust
+    term1 = (2 * g**2) / (g - 1)
+    term2 = (2 / (g + 1)) ** ((g + 1) / (g - 1))
+    term3 = 1 - (pe_p0) ** ((g - 1) / g)
+    momentum_thrust = np.sqrt(term1 * term2 * term3)
+
+    # pressure contribution
+    pressure_thrust = (pe_p0 - pa_p0) * ae_at
+    
+    c_f = momentum_thrust + pressure_thrust
+    
+    return c_f
+
+# --- 2. ISENTROPIC FLOW ---
+
 def area_mach_relation(M: float, gamma: float) -> float:
     """Calculates A/A*."""
     if M <= 0: return float('inf')
@@ -24,7 +163,7 @@ def isentropic_P_P0(M: float, gamma: float) -> float:
 def isentropic_T_T0(M: float, gamma: float) -> float:
     return (1 + 0.5 * (gamma - 1) * M**2) ** -1
 
-# --- 2. NORMAL SHOCK ---
+# --- 3. NORMAL SHOCK ---
 
 def normal_shock_relations(M1: float, gamma: float) -> dict:
     """Returns M2, P2/P1, P02/P01."""
@@ -48,7 +187,7 @@ def normal_shock_relations(M1: float, gamma: float) -> dict:
                
     return {"M2": M2, "P2_P1": p_ratio, "P02_P01": p0_ratio}
 
-# --- 3. PRANDTL-MEYER EXPANSION ---
+# --- 4. PRANDTL-MEYER EXPANSION ---
 
 def prandtl_meyer_function(M: float, gamma: float) -> float:
     """Returns the Prandtl-Meyer angle (nu) in DEGREES."""
@@ -87,7 +226,7 @@ def solve_expansion_fan(M1: float, theta_deg: float, gamma: float) -> float:
     # Guess M2 > M1. Upper bound arbitrary high Mach (20).
     return solver.solve(func, deriv, guess=M1+1.0, low=M1, high=20.0)
 
-# --- 4. OBLIQUE SHOCK (Theta-Beta-M) ---
+# --- 5. OBLIQUE SHOCK (Theta-Beta-M) ---
 
 def theta_beta_mach(M1: float, beta_deg: float, gamma: float) -> float:
     """Calculates deflection angle theta given shock angle beta."""
