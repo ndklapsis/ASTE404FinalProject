@@ -1,2 +1,0 @@
-[console_scripts]
-aste-nozzle = aste404_miniproject.main:main

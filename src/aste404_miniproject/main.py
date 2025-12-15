@@ -16,34 +16,42 @@ def load_inputs(path):
     return d
 
 def main():
+    # Command-line interface
     parser = argparse.ArgumentParser(description="ASTE 404 Nozzle Tool")
     sub = parser.add_subparsers(dest='mode')
     
-    # MODE 1: ANALYZE
+    # MODE 1: ANALYZE mode which analyzes existing nozzle
     p1 = sub.add_parser('analyze', help='Analyze existing nozzle')
     p1.add_argument('--input', required=True)
     p1.add_argument('--geometry', required=True)
     p1.add_argument('--diagnose', action='store_true')
+    # NEW FLAG HERE
+    p1.add_argument('--sweep', action='store_true', help='Plot pressure distributions for various shock locations')
     
-    # MODE 2: DESIGN
+    # MODE 2: DESIGN mode which designs new engine with throat sizing and geometry
     p2 = sub.add_parser('design', help='Design new engine')
     p2.add_argument('--thrust', type=float, required=True)
     p2.add_argument('--pc', type=float, default=50.0, help='Bar')
     p2.add_argument('--alt', type=float, default=0.0, help='km')
     p2.add_argument('--time', type=float, default=10.0)
-    p2.add_argument('--prop', type=str, default='methalox', 
-                    help="Name OR 'gamma,Tc,MW,OF'")
+    p2.add_argument('--prop', type=str, default='methalox')
 
     args = parser.parse_args()
     
     if args.mode == 'analyze':
         inputs = load_inputs(args.input)
-        geo = load_geometry(args.geometry) # Uses the util function now
-        
+        geo = load_geometry(args.geometry)
         solver = NozzleAnalyzer(inputs, geo)
+        
         solver.solve_with_conditions()
         solver.plot_results()
-        if args.diagnose: solver.plot_diagnosis()
+        
+        # New Feature Trigger
+        if args.sweep:
+            solver.plot_pressure_sweep()
+            
+        if args.diagnose: 
+            solver.plot_diagnosis()
         
     elif args.mode == 'design':
         prop = get_propellant(args.prop)

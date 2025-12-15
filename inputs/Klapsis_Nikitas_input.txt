@@ -1,0 +1,14 @@
+72000     ! Nominal Thrust (N)
+100000     ! Ambient Pressure (Pa)
+1390000   ! Chamber Pressure (Pa)
+2700      ! Chamber Temperature (K)
+1.2       ! Specific Heat Ratio gamma
+21        ! Molar Mass (g/mol)
+0.34      ! Nozzle Contour Coefficient a
+0.0034    ! Nozzle Contour Coefficient b
+0.00034   ! Nozzle Contour Coefficient c
+0.6       ! R_wtd
+0.5       ! R_wtu
+0.3       ! R_i
+33        ! theta_i (deg)
+4.4       ! Contraction Area Ratio CR
