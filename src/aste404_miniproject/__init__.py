@@ -59,7 +59,6 @@ from .gas_dynamics import (
     area_mach_derivative,
     isentropic_P_P0,
     isentropic_T_T0,
-    isentropic_rho_rho0,
     # Shock relations
     normal_shock_relations,
     prandtl_meyer_function,

@@ -1,15 +1,14 @@
-from aste404_miniproject.gas_dynamics import *
+from aste404_miniproject import gas_dynamics
 
-gamma = 1.4
+# Calculate characteristic velocity (c*)
+c_star = gas_dynamics.c_star(gamma=1.2, r=287, t0=2800)
+print(f"Characteristic velocity: {c_star:.1f} m/s")
 
-# 2. Test Normal Shock
-print("\n[2] Testing Normal Shock...")
-# M1 = 2.0. Expect M2 = 0.577
-res = normal_shock_relations(2.0, gamma)
-print(res['P02_P01'])
+# Get isentropic pressure ratio at a given Mach
+P_ratio = gas_dynamics.isentropic_P_P0(M=2.5, gamma=1.4)
+print(f"P/P0 at M=2.5: {P_ratio:.4f}")
 
-print("MACH: " + str(solve_area_mach(2.0, gamma, supersonic=True)))
-
-
-CF = c_f(gamma, pe_p0=0.1, pa_p0=0.05, ae_at=5.0)
-print(f"\nCalculated Thrust Coefficient CF: {CF:.4f}")
+# Normal shock relations
+shock = gas_dynamics.normal_shock_relations(M1=2.5, gamma=1.4)
+print(f"Post-shock Mach: {shock['M2']:.3f}")
+print(f"Pressure ratio: {shock['P2_P1']:.3f}")
