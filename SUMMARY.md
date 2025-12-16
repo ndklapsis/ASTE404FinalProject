@@ -60,21 +60,23 @@ A fully importable Python package with three main components:
 
 ---
 
-## 📚 Complete Documentation Set
+## 📚 Complete Documentation Set (5 Files)
 
 ### Main Documentation Files
 
 1. **README.md** (8 KB)
-   - Feature overview
-   - Installation instructions
-   - Quick start (3 complete examples)
+   - Feature overview (concise)
+   - Quick installation
+   - Quick start overview with reference to QUICKSTART.md
    - Physics background & equations
    - Limitations & assumptions
    - References
 
-2. **QUICKSTART.md** (15 KB)
-   - 5-minute tutorial
-   - 3 working examples with code
+2. **QUICKSTART.md** (20 KB)
+   - Installation & setup
+   - Verification tests
+   - 3 working examples with code & output
+   - Shock detection explanation
    - Common tasks & solutions
    - Input file templates
    - Key equations
@@ -89,15 +91,7 @@ A fully importable Python package with three main components:
    - Performance benchmarks
    - Troubleshooting guide
 
-4. **INSTALL.md** (10 KB)
-   - Step-by-step installation
-   - Verification tests
-   - Platform-specific instructions
-   - Virtual environment setup
-   - IDE configuration
-   - Troubleshooting
-
-5. **DEVELOPMENT.md** (20 KB)
+4. **DEVELOPMENT.md** (20 KB)
    - Project structure
    - Code organization
    - Design principles
@@ -106,13 +100,13 @@ A fully importable Python package with three main components:
    - Performance optimization
    - Future enhancements
 
-6. **INDEX.md** (5 KB)
+5. **INDEX.md** (5 KB)
    - Documentation index
    - Navigation guide
    - Feature checklist
    - Learning path
 
-**Documentation Total: ~108 KB of comprehensive guides**
+**Documentation Total: ~108 KB of consolidated, non-redundant guides**
 
 ---
 
@@ -247,13 +241,12 @@ from aste404_miniproject import *
 
 | Documentation | File | Size | Content |
 |---|---|---|---|
-| Main README | README.md | 8 KB | Overview + examples |
-| Quick Start | QUICKSTART.md | 15 KB | Tutorial + tasks |
+| Main README | README.md | 8 KB | Overview + quick install |
+| Quick Start | QUICKSTART.md | 20 KB | Setup + tutorial + tasks |
 | API Reference | API.md | 50 KB | Complete documentation |
-| Installation | INSTALL.md | 10 KB | Setup guide |
 | Development | DEVELOPMENT.md | 20 KB | Dev guidelines |
 | Navigation | INDEX.md | 5 KB | Doc index |
-| **Total** | **6 files** | **~108 KB** | **Comprehensive** |
+| **Total** | **5 files** | **~103 KB** | **Comprehensive** |
 
 ---
 

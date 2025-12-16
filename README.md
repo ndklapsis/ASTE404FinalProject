@@ -1,99 +1,33 @@
 # ASTE 404 Nozzle Simulation Toolbox
 
-A comprehensive Python library for **gas dynamics analysis**, **rocket nozzle simulation**, and **dynamic atmospheric animation**. This toolbox provides a complete suite of tools for analyzing compressible flow through convergent-divergent nozzles, including shock detection, normal shock relations, and isentropic flow calculations.
+A comprehensive Python library for **gas dynamics analysis**, **rocket nozzle simulation**, and **dynamic atmospheric animation**. This toolbox provides a complete suite of tools for analyzing compressible flow through convergent-divergent nozzles, including shock detection, normal shock relations, and isentropic flow calculations. This toolbox can be used as just a mathematics library for common gas dynamics equations, a single nozzle analysis tool for pressures/temperatures/shocks, or a dynamic simulation of a nozzle as it travels through a standard atmosphere. 
 
 ## Features
 
-- ✅ **Gas Dynamics Toolbox**: Complete set of compressible flow functions
-- ✅ **Nozzle Analysis**: Isentropic and shock flow analysis with automatic shock detection
-- ✅ **Shock Detection**: Normal, oblique, and underexpanded flow regime classification
-- ✅ **Dynamic Animation**: Real-time visualization of nozzle behavior during atmospheric ascent
-- ✅ **Standard Atmosphere Model**: US Standard Atmosphere 1976 for realistic simulations
-- ✅ **Fully Documented**: Comprehensive docstrings and examples for every module
-- ✅ **Production-Ready**: Input validation, error handling, and robust numerical methods
+- **Gas Dynamics Toolbox**: Complete set of compressible flow functions
+- **Nozzle Analysis**: Isentropic and shock flow analysis with automatic shock detection
+- **Shock Detection**: Normal, oblique, and underexpanded flow regime classification
+- **Dynamic Animation**: Real-time visualization of nozzle behavior during atmospheric ascent
 
-## Installation
+## Quick Installation
 
-### Requirements
-- Python 3.8+
-- NumPy
-- Pandas
-- Matplotlib
-
-### Install from Source
+**Requirements:** Python 3.8+, NumPy, Pandas, Matplotlib
 
 ```bash
-git clone https://github.com/ndklapsis/ASTE404FinalProject.git
-cd ASTE404FinalProject
 pip install -e .
 ```
 
-Or install dependencies manually:
-```bash
-pip install numpy pandas matplotlib
-```
+For full setup instructions and verification, see **[QUICKSTART.md](QUICKSTART.md)**.
 
 ## Quick Start
 
-### 1. Gas Dynamics Calculations
+Three main use cases:
 
-```python
-from aste404_miniproject import gas_dynamics
+**1. Gas Dynamics Calculations** - Use compressible flow functions directly
+**2. Single Nozzle Analysis** - Load engine and geometry, solve and plot
+**3. Dynamic Animation** - Simulate nozzle behavior during atmospheric ascent
 
-# Calculate characteristic velocity
-c_star = gas_dynamics.c_star(gamma=1.2, r=287, t0=2800)
-print(f"c*: {c_star:.2f} m/s")
-
-# Isentropic pressure ratio
-P_ratio = gas_dynamics.isentropic_P_P0(M=2.5, gamma=1.4)
-print(f"P/P0 at M=2.5: {P_ratio:.4f}")
-
-# Normal shock relations
-shock_data = gas_dynamics.normal_shock_relations(M1=2.5, gamma=1.4)
-print(f"M2 = {shock_data['M2']:.3f}, P2/P1 = {shock_data['P2_P1']:.3f}")
-
-# Area-Mach relation
-A_Astar = gas_dynamics.area_mach_relation(M=2.0, gamma=1.4)
-print(f"A/A* = {A_Astar:.3f}")
-```
-
-### 2. Single Nozzle Analysis
-
-```python
-from aste404_miniproject import NozzleAnalyzer, load_inputs, load_geometry
-
-# Load input parameters and geometry
-inputs = load_inputs("inputs/engine_input.txt")
-geometry = load_geometry("inputs/nozzle_geometry.csv")
-
-# Create analyzer
-analyzer = NozzleAnalyzer(inputs, geometry)
-
-# Solve isentropic flow
-analyzer.solve_isentropic()
-
-# Detect shock type
-shock_type = analyzer.detect_shock_type()
-
-# Display results
-analyzer.plot_results()
-```
-
-### 3. Dynamic Animation (Atmospheric Ascent)
-
-```python
-from aste404_miniproject import NozzleAnimator, load_inputs, load_geometry
-
-# Load parameters
-inputs = load_inputs("inputs/engine_input.txt")
-geometry = load_geometry("inputs/nozzle_geometry.csv")
-
-# Create animator with standard atmosphere
-animator = NozzleAnimator(inputs, geometry)
-
-# Run animation (0-30 km altitude with 150 frames)
-animator.run()
-```
+See **[QUICKSTART.md](QUICKSTART.md)** for complete working examples with output.
 
 ## Module Documentation
 

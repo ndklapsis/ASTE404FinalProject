@@ -10,32 +10,25 @@ This is your complete guide to the ASTE 404 Nozzle Simulation Toolbox. Below is 
 
 1. **[README.md](README.md)** - Main documentation
    - Feature overview
-   - Installation instructions
-   - Quick start examples
+   - Quick installation
+   - Quick start overview
    - Theory & physics background
    - Limitations & assumptions
 
-2. **[QUICKSTART.md](QUICKSTART.md)** - 5-minute tutorial
-   - Installation verification
+2. **[QUICKSTART.md](QUICKSTART.md)** - Complete setup & tutorial
+   - Installation & verification
    - Three complete working examples
+   - Shock detection guide
    - Common tasks with code
    - Input file templates
    - Key equations reference
    - Troubleshooting FAQ
 
-3. **[INSTALL.md](INSTALL.md)** - Setup guide
-   - Step-by-step installation
-   - Verification tests
-   - Platform-specific instructions
-   - Virtual environment setup
-   - IDE configuration
-   - Troubleshooting
-
 ---
 
 ## 📖 Reference Documentation
 
-4. **[API.md](API.md)** - Complete API reference (75+ pages)
+3. **[API.md](API.md)** - Complete API reference (75+ pages)
    - `gas_dynamics` module (all functions with formulas)
    - `NozzleAnalyzer` class (detailed methods)
    - `NozzleAnimator` class (dynamic simulation)
@@ -44,7 +37,7 @@ This is your complete guide to the ASTE 404 Nozzle Simulation Toolbox. Below is 
    - Performance benchmarks
    - Complete working examples
 
-5. **[DEVELOPMENT.md](DEVELOPMENT.md)** - Development guide
+4. **[DEVELOPMENT.md](DEVELOPMENT.md)** - Development guide
    - Project structure & organization
    - Code design principles
    - Contributing guidelines

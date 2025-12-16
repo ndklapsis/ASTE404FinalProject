@@ -94,6 +94,26 @@ plt.show()
 
 ---
 
+### Understanding Shock Detection
+
+The `detect_shock_type()` method automatically classifies flow regimes:
+
+**Flow Regimes:**
+- **Underexpanded** (No Shock): Exit pressure ≥ ambient → normal supersonic exit
+- **Normal Shock**: Exit pressure < ambient → shock in divergent section
+- **Oblique Shocks**: Exit pressure < ambient, no internal shock → external shock system
+
+**Key Attributes After Detection:**
+- `analyzer.shock_type` - Type: 'normal', 'oblique', or None
+- `analyzer.shock_location` - Index where shock occurs
+- `analyzer.M_post_shock` - Mach distribution with shock
+- `analyzer.P_post_shock` - Pressure distribution with shock
+
+**Algorithm:**
+The method compares exit pressure to ambient, then if overexpanded, searches for a normal shock location that matches ambient pressure at the exit (within 5% tolerance).
+
+---
+
 ### Example 3: Animate Nozzle During Ascent
 
 ```python
