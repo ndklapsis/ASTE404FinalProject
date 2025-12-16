@@ -44,7 +44,6 @@ The core physics engine for all calculations.
 - **`area_mach_derivative(M, gamma)`** - Derivative for solver
 - **`isentropic_P_P0(M, gamma)`** - Pressure ratio (P/P0)
 - **`isentropic_T_T0(M, gamma)`** - Temperature ratio (T/T0)
-- **`isentropic_rho_rho0(M, gamma)`** - Density ratio (ρ/ρ0)
 
 #### Shock Functions
 - **`normal_shock_relations(M1, gamma)`** - Normal shock across all parameters
