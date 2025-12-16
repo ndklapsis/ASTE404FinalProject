@@ -151,46 +151,6 @@ The animation produces:
 - Convergence plots for numerical solver validation
 - Summary statistics for each altitude
 
-## Example: Complete Workflow
-
-```python
-import os
-from aste404_miniproject import (
-    NozzleAnalyzer, 
-    NozzleAnimator,
-    load_inputs, 
-    load_geometry,
-    gas_dynamics
-)
-
-# === Step 1: Gas Dynamics Verification ===
-print("Testing gas dynamics...")
-M_test = gas_dynamics.area_mach_relation(2.0, 1.4)
-print(f"A/A* at M=2.0: {M_test:.4f}")
-
-# === Step 2: Static Nozzle Analysis ===
-print("\nAnalyzing nozzle at sea level...")
-inputs = load_inputs("inputs/nozzle_input.txt")
-geometry = load_geometry("inputs/nozzle_geometry.csv")
-
-analyzer = NozzleAnalyzer(inputs, geometry)
-analyzer.solve_isentropic()
-shock_type = analyzer.detect_shock_type()
-
-print(f"Shock type: {shock_type}")
-print(f"Exit Mach: {analyzer.M[-1]:.3f}")
-print(f"Exit Pressure: {analyzer.P[-1]/1e5:.3f} Bar")
-
-if shock_type == 'normal':
-    print(f"Shock location: x = {analyzer.x[analyzer.shock_location]:.3f} m")
-    analyzer.plot_results()
-
-# === Step 3: Dynamic Simulation ===
-print("\nRunning atmospheric ascent animation...")
-animator = NozzleAnimator(inputs, geometry)
-animator.run()
-```
-
 ## Testing
 
 Run the test suite:
