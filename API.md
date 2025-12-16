@@ -14,6 +14,10 @@
 
 ---
 
+**Version Note:** This documentation covers v0.3.0. Modules `design.py` and `propellants.py` are not yet functional and will be available in v0.4.
+
+---
+
 ## Gas Dynamics Module
 
 Location: `aste404_miniproject.gas_dynamics`

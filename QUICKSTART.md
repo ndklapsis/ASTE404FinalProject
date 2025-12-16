@@ -19,6 +19,8 @@ import aste404_miniproject
 print(aste404_miniproject.__version__)  # Should print: 0.3.0
 ```
 
+**Note:** Modules `design.py` and `propellants.py` are deprecated and will be functional in version 0.4. Current version focuses on core gas dynamics, nozzle analysis, and animation.
+
 ---
 
 ## 5-Minute Tutorial

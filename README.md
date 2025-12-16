@@ -243,21 +243,6 @@ The analyzer uses a robust scanning algorithm to detect normal shock location:
 - **Frozen chemistry**: Assumes constant γ and molecular weight throughout nozzle
 - **Atmosphere model**: Valid up to 86 km altitude (above that, simplified exponential)
 
-## Performance Notes
-
-- Pre-calculates 150 altitude frames in ~10-30 seconds (depending on geometry resolution)
-- Animation runs at 3.3 fps for detailed observation of transient behavior
-- Solver converges in 10-30 iterations for typical nozzle geometries
-
-## Contributing
-
-Contributions welcome! Areas for enhancement:
-- Viscous flow corrections (CFD validation)
-- Two-phase flow (particle laden jets)
-- Heat transfer effects
-- Chemical non-equilibrium
-- Web interface for interactive design
-
 ## License
 
 This project is for educational use in ASTE 404 Mini-Project course.
@@ -277,11 +262,7 @@ ASTE 404 Mini-Project, Fall 2025
 ## Changelog
 
 ### v0.3.0 (Current)
-- ✅ Complete gas dynamics toolbox with full documentation
-- ✅ Robust nozzle analyzer with shock detection
-- ✅ Dynamic animation with standard atmosphere
-- ✅ Comprehensive README and examples
-- ✅ Production-ready error handling
+- Added dynamic animation with standard atmosphere
 
 ### v0.2.0
 - Added shock detection and animation framework

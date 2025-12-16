@@ -1,12 +1,12 @@
 # Library Documentation Index
 
-## 📚 Complete Documentation Set
+## Complete Documentation Set
 
 This is your complete guide to the ASTE 404 Nozzle Simulation Toolbox. Below is an organized index of all documentation files.
 
 ---
 
-## 🚀 Getting Started (Start Here!)
+## Getting Started
 
 1. **[README.md](README.md)** - Main documentation
    - Feature overview
@@ -58,14 +58,16 @@ src/aste404_miniproject/
 ├── animation.py         ← Dynamic animation (260 lines)
 ├── solver.py            ← Numerical solver (100 lines)
 ├── utils.py             ← I/O utilities
-├── design.py            ← Design tools (optional)
-├── propellants.py       ← Propellant database (optional)
+├── design.py            ← ⚠️ DEPRECATED (will be functional in v0.4)
+├── propellants.py       ← ⚠️ DEPRECATED (will be functional in v0.4)
 └── main.py              ← CLI interface (optional)
 ```
 
+> **Note:** `design.py` and `propellants.py` are not yet functional. These modules will be available in version 0.4. For now, use the core modules above.
+
 ---
 
-## 🧪 Test Files
+## Test Files
 
 Located in `/tests/`:
 
@@ -92,7 +94,7 @@ Located in `/tests/`:
 
 ---
 
-## 📊 Example Input Files
+## Example Input Files
 
 Located in `/inputs/`:
 
@@ -117,7 +119,7 @@ Located in `/inputs/`:
 
 ---
 
-## 🎯 Quick Navigation by Task
+## Quick Navigation by Task
 
 ### Task: Install and Verify
 1. Read: INSTALL.md
@@ -155,7 +157,7 @@ Located in `/inputs/`:
 
 ---
 
-## 📚 Module Documentation Quick Reference
+## Module Documentation Quick Reference
 
 ### `gas_dynamics` Functions (8 categories)
 
@@ -189,173 +191,3 @@ Located in `/inputs/`:
 
 **HybridSolver** (Numerical Methods)
 - `solve()` - Find roots of equations
-
----
-
-## 🔗 External References
-
-### Academic Papers & Books
-- Anderson, J.D. *Modern Compressible Flow* (2003)
-- Sutton & Biblarz *Rocket Propulsion Elements* (2016)
-- NACA Report 1135 - Compressible Flow Tables
-- US Standard Atmosphere (1976)
-
-### Online Resources
-- CompressibleFlow.com - Interactive calculators
-- Rocket Propulsion Center - AIAA forum
-- NASA Technical Reports - NTRS database
-
----
-
-## 📋 Feature Checklist
-
-- ✅ Complete gas dynamics toolbox (10+ functions)
-- ✅ Automatic shock detection (normal/oblique/underexpanded)
-- ✅ Nozzle analysis with visualization
-- ✅ Dynamic atmospheric animation (0-30 km)
-- ✅ US Standard Atmosphere 1976 model
-- ✅ Comprehensive documentation (500+ pages)
-- ✅ Test suite with 50+ test cases
-- ✅ Example input files and geometries
-- ✅ Quick start guide with 5 complete examples
-- ✅ API reference with 75+ detailed function descriptions
-- ✅ Development guide for contributors
-- ✅ Installation guide for all platforms
-- ✅ Troubleshooting FAQs
-- ✅ Production-ready error handling
-- ✅ NumPy array support in all functions
-- ✅ Fully documented docstrings
-- ✅ Version controlled (git)
-
----
-
-## 📞 Support & Help
-
-### First Steps
-1. Check README.md for overview
-2. Follow INSTALL.md for setup
-3. Run QUICKSTART.md examples
-4. Explore test files
-
-### Reference
-1. API.md for complete function reference
-2. DEVELOPMENT.md for code structure
-3. Example input files for proper format
-4. Test files for usage examples
-
-### Troubleshooting
-1. INSTALL.md troubleshooting section
-2. QUICKSTART.md FAQ
-3. API.md performance notes
-4. Run test files to isolate issues
-
-### Contributing
-Follow DEVELOPMENT.md guidelines for:
-- Adding new functions
-- Improving algorithms
-- Adding tests
-- Updating documentation
-
----
-
-## 📈 Version History
-
-**v0.3.0** (Current) - Complete Library Release
-- ✅ Production-ready gas dynamics toolbox
-- ✅ Robust nozzle analyzer with shock detection
-- ✅ Standard atmosphere animation system
-- ✅ Comprehensive documentation (4 guides + API)
-- ✅ Full test suite
-- ✅ Example engines and geometries
-
-**v0.2.0** - Animation Framework
-- Added dynamic atmospheric animation
-- Implemented standard atmosphere model
-- Created NozzleAnimator class
-
-**v0.1.0** - Initial Gas Dynamics
-- Basic compressible flow functions
-- Area-Mach solver
-- Foundation for nozzle analysis
-
----
-
-## 📄 File Summary
-
-| File | Type | Purpose | Size |
-|------|------|---------|------|
-| README.md | Guide | Main documentation | ~8 KB |
-| QUICKSTART.md | Tutorial | 5-minute intro & examples | ~15 KB |
-| INSTALL.md | Guide | Installation & setup | ~10 KB |
-| API.md | Reference | Complete API documentation | ~50 KB |
-| DEVELOPMENT.md | Guide | Development & contributing | ~20 KB |
-| INDEX.md | Nav | This file | ~5 KB |
-
-**Documentation Total:** ~108 KB (text), extremely comprehensive
-
----
-
-## 🎓 Learning Path
-
-**Beginner (1-2 hours)**
-1. Read: README.md (Feature overview)
-2. Read: QUICKSTART.md (Tutorial)
-3. Run: test_step1.py (Verification)
-4. Try: Example 1 from QUICKSTART (Gas dynamics)
-
-**Intermediate (2-4 hours)**
-1. Try: Example 2 from QUICKSTART (Nozzle analysis)
-2. Run: test_step2.py (Full analysis)
-3. Modify: Engine parameters in input file
-4. Generate: Your own analysis plots
-
-**Advanced (4+ hours)**
-1. Try: Example 3 from QUICKSTART (Animation)
-2. Run: test_step3.py (Dynamic simulation)
-3. Read: DEVELOPMENT.md (Code structure)
-4. Read: API.md (Detailed reference)
-5. Extend: Add custom functions
-
----
-
-## ✨ Highlights
-
-### Completeness
-- Every function has documentation with formulas
-- Every class has usage examples
-- Test files demonstrate all features
-- Example input files provided
-
-### Quality
-- Input validation on all functions
-- Error messages guide users
-- Numerical solver is robust
-- Animation is smooth and informative
-
-### Usability
-- Clear, simple API
-- Sensible defaults
-- Flexible input formats
-- Production-ready code
-
-### Extensibility
-- Well-organized module structure
-- Easy to add new functions
-- Testing framework in place
-- Contributing guidelines included
-
----
-
-## 🚀 Ready to Start?
-
-1. **Install:** Follow INSTALL.md
-2. **Learn:** Read QUICKSTART.md
-3. **Explore:** Run test files
-4. **Analyze:** Use your own parameters
-5. **Contribute:** See DEVELOPMENT.md
-
----
-
-**Welcome to the ASTE 404 Nozzle Simulation Toolbox!** 🎓🚀
-
-All documentation is organized, complete, and ready to use.
