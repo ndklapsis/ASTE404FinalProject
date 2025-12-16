@@ -1,0 +1,14 @@
+75000     ! Nominal Thrust (N)
+101325    ! Ambient Pressure at Sea Level (Pa)
+800000    ! Chamber Pressure (Pa) - Tuned for normal shock at sea level
+2800      ! Chamber Temperature (K)
+1.25      ! Specific Heat Ratio gamma
+28        ! Molar Mass (g/mol)
+0.34      ! Nozzle Contour Coefficient a
+0.0034    ! Nozzle Contour Coefficient b
+0.00034   ! Nozzle Contour Coefficient c
+0.6       ! R_wtd
+0.5       ! R_wtu
+0.3       ! R_i
+33        ! theta_i (deg)
+4.4       ! Contraction Area Ratio CR

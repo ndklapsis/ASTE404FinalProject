@@ -100,7 +100,7 @@ class NozzleAnalyzer:
             # Calculate the angle of the expansion fan
             M_exit_isen = self.M[-1]
             beta = prandtl_meyer_function(M_exit_isen, self.gamma)
-            print(f"Expansion fan angle (beta): {beta:.3f} radians")
+            print(f"Expansion fan angle (beta): {beta:.3f} degrees")
             self.shock_type = 'expansion'
             return 'expansion'
         
@@ -266,11 +266,12 @@ class NozzleAnalyzer:
         fig = plt.figure(figsize=(16, 12))
         
         # Create grid for subplots - larger nozzle plot
-        gs = fig.add_gridspec(3, 2, hspace=0.3, wspace=0.3, height_ratios=[2.5, 1, 1])
+        gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3, height_ratios=[2.5, 1, 1])
         ax1 = fig.add_subplot(gs[0, :])    # Nozzle contour with Mach overlay (full width, large)
         ax2 = fig.add_subplot(gs[1, :])    # Pressure (full width)
         ax3 = fig.add_subplot(gs[2, 0])    # Temperature
-        ax4 = fig.add_subplot(gs[2, 1])    # Shock info text
+        ax5 = fig.add_subplot(gs[2, 1])    # Solver convergence (error over iteration)
+        ax4 = fig.add_subplot(gs[2, 2])    # Shock info text
         
         # --- Plot 1: Nozzle Contour with Mach Heatmap (Large at TOP) ---
         self._plot_nozzle_contour(ax1)
@@ -307,6 +308,17 @@ class NozzleAnalyzer:
         ax3.grid(True, alpha=0.3)
         ax3.legend(loc='best')
         
+        # --- Plot 5: Solver Convergence (Error Over Iterations) ---
+        if self.solver.history:
+            iterations = range(1, len(self.solver.history) + 1)
+            ax5.semilogy(iterations, self.solver.history, 'r.-', linewidth=2, markersize=6)
+            ax5.set_ylabel('Absolute Error |f(x)|', fontsize=10, fontweight='bold')
+            ax5.set_xlabel('Iteration', fontsize=10, fontweight='bold')
+            ax5.set_title('Solver Convergence', fontsize=11, fontweight='bold')
+            ax5.grid(True, alpha=0.3, which='both')
+            ax5.axhline(self.solver.tol, color='green', linestyle='--', linewidth=1.5, label=f'Tolerance ({self.solver.tol:.0e})')
+            ax5.legend(loc='best', fontsize=9)
+        
         # --- Plot 4: Summary Text ---
         ax4.axis('off')
         summary_text = self._generate_shock_summary()
@@ -329,22 +341,30 @@ class NozzleAnalyzer:
         summary += "ISENTROPIC (Design):\n"
         summary += f"  Exit Mach: {self.M[-1]:.3f}\n"
         summary += f"  Exit Pressure: {self.P[-1]/1e5:.3f} Bar\n"
-        summary += f"  Exit Temp: {self.T[-1]:.1f} K\n\n"
+        summary += f"  Exit Temp: {self.T[-1]:.1f} K\n"
+        summary += f"  Pressure Deficit: {(self.P[-1] - P_ambient)/1e5:.3f} Bar\n\n"
         
         # Post-shock conditions (if applicable)
         if self.shock_type == 'normal' and self.M_post_shock is not None:
             summary += "WITH NORMAL SHOCK:\n"
             summary += f"  Shock Location: x = {self.x[self.shock_location]:.4f} m\n"
-            summary += f"  Shock Index: {self.shock_location}\n"
             summary += f"  Pre-shock Mach: {self.M[self.shock_location]:.3f}\n"
             summary += f"  Post-shock Mach: {self.M_post_shock[self.shock_location]:.3f}\n"
             summary += f"  Exit Mach: {self.M_post_shock[-1]:.3f}\n"
             summary += f"  Exit Pressure: {self.P_post_shock[-1]/1e5:.3f} Bar\n"
-            summary += f"  Exit Temp: {self.T_post_shock[-1]:.1f} K\n"
+            summary += f"  Pressure Error: {abs(self.P_post_shock[-1] - P_ambient)/P_ambient*100:.1f}%\n"
         elif self.shock_type == 'oblique':
             summary += "OBLIQUE SHOCK SYSTEM:\n"
-            summary += "  External shocks and expansion fans\n"
-            summary += "  (Detailed analysis not yet implemented)\n"
+            summary += f"  Exit Mach (supersonic): {self.M[-1]:.3f}\n"
+            summary += f"  Exit pressure (overexpanded):\n"
+            summary += f"    {self.P[-1]/1e5:.3f} Bar << {P_ambient/1e5:.3f} Bar\n"
+            summary += "  Flow characteristic:\n"
+            summary += "    - Oblique shocks at end of nozzle\n"
+        elif self.shock_type is None:
+            summary += "NO INTERNAL SHOCK:\n"
+            summary += f"  Flow is UNDEREXPANDED\n"
+            summary += f"  Exit pressure ≈ ambient\n"
+            summary += f"  Isentropic design achieved\n"
         
         return summary
     

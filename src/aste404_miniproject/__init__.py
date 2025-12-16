@@ -1,11 +1,11 @@
 """
 ASTE 404 Mini-Project Library
-Step 2: Nozzle Analysis
 """
 
 from .solver import HybridSolver
-from .nozzle import NozzleAnalyzer  # <--- NEW
-from .utils import load_inputs, load_geometry # <--- NEW
+from .nozzle import NozzleAnalyzer
+from .animation import NozzleAnimator
+from .utils import load_inputs, load_geometry
 from .gas_dynamics import (
     area_mach_relation, 
     normal_shock_relations, 
@@ -13,4 +13,4 @@ from .gas_dynamics import (
     solve_oblique_beta
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

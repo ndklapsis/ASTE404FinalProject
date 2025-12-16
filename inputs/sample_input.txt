@@ -1,5 +1,5 @@
 100000    ! Nominal Thrust (N)
-500000    ! Ambient Pressure (Pa)
+30000    ! Ambient Pressure (Pa)
 3500000   ! Chamber Pressure (Pa)
 2800      ! Chamber Temperature (K)
 1.2       ! Specific Heat Ratio gamma
