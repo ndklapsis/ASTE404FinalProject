@@ -1,14 +1,47 @@
-from aste404_miniproject import gas_dynamics
+import os
+from aste404_miniproject.utils import load_inputs, load_geometry
+from aste404_miniproject.nozzle import NozzleAnalyzer
 
-# Calculate characteristic velocity (c*)
-c_star = gas_dynamics.c_star(gamma=1.2, r=287, t0=2800)
-print(f"Characteristic velocity: {c_star:.1f} m/s")
+def run_step2():
+    print("=== STEP 2: FULL NOZZLE ANALYSIS ===")
+    
+    # input files
+    input_file = os.path.join(os.path.dirname(__file__), "..", "inputs", "sample_input.txt")
+    geo_file = os.path.join(os.path.dirname(__file__), "..", "inputs", "sample_r_vs_x.csv")
+    if not os.path.exists(input_file) or not os.path.exists(geo_file):
+        print("ERROR: Could not find input files!")
+        print(f"Please ensure '{input_file}' and '{geo_file}' exist.")
+        return
 
-# Get isentropic pressure ratio at a given Mach
-P_ratio = gas_dynamics.isentropic_P_P0(M=2.5, gamma=1.4)
-print(f"P/P0 at M=2.5: {P_ratio:.4f}")
+    # 2. Load Data
+    print("Loading inputs...")
+    inputs = load_inputs(input_file)
+    print(f"   > Chamber Pressure (Pc): {inputs['Pc']} Pa")
+    print(f"   > Gamma: {inputs['gamma']}")
+    
+    print("Loading geometry...")
+    geo = load_geometry(geo_file)
+    print(f"   > Loaded {len(geo)} geometry points.")
+    
+    # 3. Run Analysis
+    print("Initializing Analyzer...")
+    analyzer = NozzleAnalyzer(inputs, geo)
+    
+    print("Running Isentropic Solver...")
+    analyzer.solve_isentropic()
+    
+    # 4. Check Results
+    print(f"   > Throat Mach: {analyzer.M[analyzer.throat_idx]:.4f} (Should be 1.0)")
+    print(f"   > Exit Mach:   {analyzer.M[-1]:.4f}")
+    print(f"   > Exit Pressure: {analyzer.P[-1]:.2f} Pa")
+    
+    # # 5. Detect Shock Type
+    # print("\nDetecting shock configuration...")
+    shock_type = analyzer.detect_shock_type()
+    
+    # # 6. Plot Results (with shock overlay if applicable)
+    # print("\nGenerating Plot...")
+    analyzer.plot_results()
 
-# Normal shock relations
-shock = gas_dynamics.normal_shock_relations(M1=2.5, gamma=1.4)
-print(f"Post-shock Mach: {shock['M2']:.3f}")
-print(f"Pressure ratio: {shock['P2_P1']:.3f}")
+if __name__ == "__main__":
+    run_step2()

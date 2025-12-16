@@ -57,41 +57,53 @@ Pressure ratio: 5.675
 ### Example 2: Analyze a Nozzle at Sea Level
 
 ```python
-from aste404_miniproject import NozzleAnalyzer, load_inputs, load_geometry
-import matplotlib.pyplot as plt
+import os
+from aste404_miniproject.utils import load_inputs, load_geometry
+from aste404_miniproject.nozzle import NozzleAnalyzer
 
-# Load engine parameters and geometry
-inputs = load_inputs("inputs/normal_shock_sealevel_input.txt")
-geometry = load_geometry("inputs/Klapsis_Nikitas_nozzle_geometry.csv")
+def run_step2():
+    print("=== STEP 2: FULL NOZZLE ANALYSIS ===")
+    
+    # input files
+    input_file = os.path.join(os.path.dirname(__file__), "..", "inputs", "sample_input.txt")
+    geo_file = os.path.join(os.path.dirname(__file__), "..", "inputs", "sample_r_vs_x.csv")
+    if not os.path.exists(input_file) or not os.path.exists(geo_file):
+        print("ERROR: Could not find input files!")
+        print(f"Please ensure '{input_file}' and '{geo_file}' exist.")
+        return
 
-# Create analyzer
-analyzer = NozzleAnalyzer(inputs, geometry)
+    # 2. Load Data
+    print("Loading inputs...")
+    inputs = load_inputs(input_file)
+    print(f"   > Chamber Pressure (Pc): {inputs['Pc']} Pa")
+    print(f"   > Gamma: {inputs['gamma']}")
+    
+    print("Loading geometry...")
+    geo = load_geometry(geo_file)
+    print(f"   > Loaded {len(geo)} geometry points.")
+    
+    # 3. Run Analysis
+    print("Initializing Analyzer...")
+    analyzer = NozzleAnalyzer(inputs, geo)
+    
+    print("Running Isentropic Solver...")
+    analyzer.solve_isentropic()
+    
+    # 4. Check Results
+    print(f"   > Throat Mach: {analyzer.M[analyzer.throat_idx]:.4f} (Should be 1.0)")
+    print(f"   > Exit Mach:   {analyzer.M[-1]:.4f}")
+    print(f"   > Exit Pressure: {analyzer.P[-1]:.2f} Pa")
+    
+    # # 5. Detect Shock Type
+    # print("\nDetecting shock configuration...")
+    shock_type = analyzer.detect_shock_type()
+    
+    # # 6. Plot Results (with shock overlay if applicable)
+    # print("\nGenerating Plot...")
+    analyzer.plot_results()
 
-# Solve isentropic flow
-print("Solving isentropic flow...")
-analyzer.solve_isentropic()
-
-# Print results
-print(f"Exit Mach: {analyzer.M[-1]:.3f}")
-print(f"Exit Pressure: {analyzer.P[-1]/1e5:.3f} Bar")
-print(f"Throat area: {analyzer.At:.6f} m²")
-
-# Detect shock type
-print("\nDetecting shock...")
-shock_type = analyzer.detect_shock_type()
-print(f"Shock type: {shock_type}")
-
-if shock_type == 'normal':
-    shock_x = analyzer.x[analyzer.shock_location]
-    M1 = analyzer.M[analyzer.shock_location]
-    M2 = analyzer.M_post_shock[analyzer.shock_location]
-    print(f"  Location: x = {shock_x:.3f} m")
-    print(f"  Pre-shock Mach: {M1:.3f}")
-    print(f"  Post-shock Mach: {M2:.3f}")
-
-# Show plots
-analyzer.plot_results()
-plt.show()
+if __name__ == "__main__":
+    run_step2()
 ```
 
 ---
@@ -119,132 +131,44 @@ The method compares exit pressure to ambient, then if overexpanded, searches for
 ### Example 3: Animate Nozzle During Ascent
 
 ```python
-from aste404_miniproject import NozzleAnimator, load_inputs, load_geometry
+import os
+from aste404_miniproject.utils import load_inputs, load_geometry
+from aste404_miniproject.animation import NozzleAnimator
 
-# Load data
-inputs = load_inputs("inputs/Klapsis_Nikitas_input.txt")
-geometry = load_geometry("inputs/Klapsis_Nikitas_nozzle_geometry.csv")
-
-# Create animator (uses standard atmosphere 0-30 km)
-animator = NozzleAnimator(inputs, geometry)
-
-# Run animation
-print("Pre-calculating 150 altitude frames...")
-animator.run()
-
-# The animation will show:
-# - Top: Pressure distribution
-# - Bottom: Mach distribution
-# - Real-time shock location tracking
-# - Altitude and ambient pressure updates
-```
-
----
-
-## Common Tasks
-
-### Task 1: Compare Shock Location at Different Altitudes
-
-```python
-from aste404_miniproject import NozzleAnalyzer, load_inputs, load_geometry
-
-inputs = load_inputs("inputs/engine_input.txt")
-geometry = load_geometry("inputs/nozzle_geom.csv")
-
-altitudes = [0, 5000, 10000, 15000]  # meters
-baseline_P0 = 101325  # Pa (sea level)
-
-for alt in altitudes:
-    # Approximate ambient pressure (rough formula)
-    P_ambient = baseline_P0 * (1 - 0.0065 * alt / 288.15) ** 5.255
+def run_step3():
+    print("=== STEP 3: FLIGHT ANIMATION ===")
     
-    inputs['Pb1'] = P_ambient
-    analyzer = NozzleAnalyzer(inputs, geometry)
-    analyzer.solve_isentropic()
-    shock_type = analyzer.detect_shock_type()
+    # Build correct paths relative to project root
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    input_file = os.path.join(project_root, "inputs", "sample_input.txt")
+    geo_file = os.path.join(project_root, "inputs", "sample_r_vs_x.csv")
     
-    if shock_type == 'normal':
-        x_shock = analyzer.x[analyzer.shock_location]
-        print(f"Alt {alt/1000:.1f} km: shock at x={x_shock:.3f} m")
-    else:
-        print(f"Alt {alt/1000:.1f} km: {shock_type} flow")
-```
-
----
-
-### Task 2: Verify Gas Dynamics Functions
-
-```python
-from aste404_miniproject import (
-    gas_dynamics,
-    HybridSolver,
-    area_mach_relation,
-    area_mach_derivative
-)
-
-# Test area-Mach relation
-# Known: A/A* = 2.0 should give M ≈ 2.197 (supersonic)
-solver = HybridSolver(tol=1e-8)
-func = lambda m: area_mach_relation(m, 1.4) - 2.0
-deriv = lambda m: area_mach_derivative(m, 1.4)
-
-M_solution = solver.solve(func, deriv, guess=2.5, low=1.0, high=5.0)
-print(f"Area ratio 2.0 gives M = {M_solution:.4f}")
-
-# Verify with known value
-expected = 2.19704  # From standard tables
-error = abs(M_solution - expected)
-print(f"Error vs. standard table: {error:.6f}")
-assert error < 1e-4, "Solver accuracy check failed!"
-print("✓ Solver verified!")
-```
-
----
-
-### Task 3: Plot Pressure vs. Mach at Different Ambient Pressures
-
-```python
-from aste404_miniproject import NozzleAnalyzer, load_inputs, load_geometry
-import matplotlib.pyplot as plt
-
-inputs = load_inputs("inputs/engine_input.txt")
-geometry = load_geometry("inputs/nozzle_geom.csv")
-
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
-
-# Test at different ambient pressures
-ambient_pressures = [10000, 50000, 101325, 200000]  # Pa
-
-for P_amb in ambient_pressures:
-    inputs['Pb1'] = P_amb
-    analyzer = NozzleAnalyzer(inputs, geometry)
-    analyzer.solve_isentropic()
-    shock_type = analyzer.detect_shock_type()
+    # Verify files exist
+    if not os.path.exists(input_file) or not os.path.exists(geo_file):
+        print("ERROR: Could not find input files!")
+        print(f"Looking for:")
+        print(f"  - {input_file}")
+        print(f"  - {geo_file}")
+        return
     
-    # Use appropriate pressure array
-    if shock_type == 'normal':
-        P_plot = analyzer.P_post_shock
-    else:
-        P_plot = analyzer.P
+    # Load files
+    print("Loading inputs...")
+    inputs = load_inputs(input_file)
     
-    ax1.plot(analyzer.x, P_plot/1e5, label=f'{P_amb/1e5:.1f} Bar')
-    ax2.plot(analyzer.x, analyzer.M, label=f'{P_amb/1e5:.1f} Bar')
+    print("Loading geometry...")
+    geo = load_geometry(geo_file)
+    print(f"   > Loaded {len(geo)} geometry points.")
+    
+    # Initialize the Animator
+    print("Initializing animator with standard atmosphere model...")
+    animator = NozzleAnimator(inputs, geo)
+    
+    # Run animation
+    print("Starting pre-calculation of 150 altitude frames...")
+    animator.run()
 
-ax1.set_xlabel('Axial Position x (m)')
-ax1.set_ylabel('Pressure (Bar)')
-ax1.set_title('Pressure Distribution')
-ax1.grid(True, alpha=0.3)
-ax1.legend()
-
-ax2.set_xlabel('Axial Position x (m)')
-ax2.set_ylabel('Mach Number')
-ax2.set_title('Mach Distribution')
-ax2.axhline(1.0, color='gray', linestyle='--', alpha=0.5)
-ax2.grid(True, alpha=0.3)
-ax2.legend()
-
-plt.tight_layout()
-plt.show()
+if __name__ == "__main__":
+    run_step3()
 ```
 
 ---
@@ -372,4 +296,3 @@ print(f"Exit pressure error: {abs(analyzer.P_post_shock[-1] - P_ambient)/P_ambie
 
 ---
 
-**Happy analyzing! 🚀**
